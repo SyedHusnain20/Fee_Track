@@ -15,9 +15,14 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-from b2sdk.v2 import B2Api, InMemoryAccountInfo
+# Make the project root (/app) importable when this script is run directly
+# (e.g. `python scripts/backup_to_b2.py`) rather than as `python -m scripts.backup_to_b2`.
+# Without this, Python only puts scripts/ on sys.path, not /app, so `import app...` fails.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from app.core.config import settings
+from b2sdk.v2 import B2Api, InMemoryAccountInfo  # noqa: E402
+
+from app.core.config import settings  # noqa: E402
 
 BACKUP_DIR = Path("/tmp/raabta_backups")
 

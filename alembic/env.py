@@ -4,11 +4,11 @@ from sqlalchemy import engine_from_config, pool
 from sqlmodel import SQLModel
 
 from alembic import context
-from app.core.config import settings
 
-# Import model modules here as they're created in Step 5, so their tables
-# register on SQLModel.metadata and autogenerate can see them, e.g.:
-# from app.models import class_level, student, teacher, ...  # noqa: F401
+# Model modules must be imported so their tables register on
+# SQLModel.metadata before autogenerate runs.
+from app import models  # noqa: F401
+from app.core.config import settings
 
 config = context.config
 

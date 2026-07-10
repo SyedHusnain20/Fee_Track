@@ -1,7 +1,25 @@
-# Model modules land here in Step 5 (core models & Alembic migrations):
-# class_level.py, student.py, teacher.py, category_fee_default.py,
-# enrollment.py, roll_number_counter.py, fee_cycle.py, attendance_record.py,
-# admin_user.py, system_setting.py, audit_log.py
-#
-# Each model's SQLModel class must be imported here so Alembic's autogenerate
-# (see alembic/env.py) can see it via SQLModel.metadata.
+from app.models.admin_user import AdminUser
+from app.models.attendance_record import AttendanceRecord
+from app.models.audit_log import AuditLog
+from app.models.category_fee_default import CategoryFeeDefault
+from app.models.class_level import ClassLevel
+from app.models.enrollment import Enrollment
+from app.models.fee_cycle import FeeCycle
+from app.models.roll_number_counter import RollNumberCounter
+from app.models.student import Student
+from app.models.system_setting import SystemSetting
+from app.models.teacher import Teacher
+
+__all__ = [
+    "AdminUser",
+    "AttendanceRecord",
+    "AuditLog",
+    "CategoryFeeDefault",
+    "ClassLevel",
+    "Enrollment",
+    "FeeCycle",
+    "RollNumberCounter",
+    "Student",
+    "SystemSetting",
+    "Teacher",
+]
