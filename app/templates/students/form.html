@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}{% if student %}Edit{% else %}Add{% endif %} Student — Raabta Admin{% endblock %}
+{% block content %}
+
+<h1 class="text-xl font-semibold text-slate-900 mb-6">
+    {% if student %}Edit {{ student.name }}{% else %}Add a student{% endif %}
+</h1>
+
+<form method="post" action="{% if student %}/students/{{ student.id }}{% else %}/students{% endif %}"
+      class="bg-white border border-slate-200 rounded-xl shadow-sm p-6 space-y-4 max-w-xl">
+
+    {% if error %}
+    <div class="text-sm text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-2">{{ error }}</div>
+    {% endif %}
+
+    {% if student %}
+    <div class="text-sm text-slate-500">
+        Roll number <span class="font-mono text-slate-700">{{ student.roll_number }}</span> — system-generated, can't be changed.
+    </div>
+    {% endif %}
+
+    <div>
+        <label for="name" class="block text-sm font-medium text-slate-700 mb-1">Student name</label>
+        <input type="text" name="name" id="name" required
+               value="{{ student.name if student else '' }}"
+               class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-800 focus:border-slate-800">
+    </div>
+
+    <div>
+        <label for="father_name" class="block text-sm font-medium text-slate-700 mb-1">Father's name</label>
+        <input type="text" name="father_name" id="father_name" required
+               value="{{ student.father_name if student else '' }}"
+               class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-800 focus:border-slate-800">
+    </div>
+
+    <div>
+        <label for="parent_whatsapp" class="block text-sm font-medium text-slate-700 mb-1">Parent's WhatsApp number</label>
+        <input type="text" name="parent_whatsapp" id="parent_whatsapp" required
+               value="{{ student.parent_whatsapp if student else '' }}"
+               placeholder="+92 3xx xxxxxxx"
+               class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-800 focus:border-slate-800">
+    </div>
+
+    <div>
+        <label for="class_level_id" class="block text-sm font-medium text-slate-700 mb-1">Class</label>
+        <select name="class_level_id" id="class_level_id" required
+                class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-800 focus:border-slate-800">
+            {% for cl in class_levels %}
+            <option value="{{ cl.id }}" {% if student and student.class_level_id == cl.id %}selected{% endif %}>{{ cl.name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    {% if not student %}
+    <div>
+        <label for="enrollment_year" class="block text-sm font-medium text-slate-700 mb-1">Admission year</label>
+        <input type="number" name="enrollment_year" id="enrollment_year" required
+               value="{{ current_year }}" min="2000" max="2100"
+               class="w-40 rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-800 focus:border-slate-800">
+        <p class="text-xs text-slate-400 mt-1">Defaults to this year — adjust only for backdated/migrated admissions. Used in the roll number's cohort code (Section 6).</p>
+    </div>
+    {% endif %}
+
+    <div class="flex items-center gap-3 pt-2">
+        <button type="submit" class="rounded-md bg-slate-800 text-white text-sm font-medium px-4 py-2 hover:bg-slate-700">
+            {% if student %}Save changes{% else %}Create student{% endif %}
+        </button>
+        <a href="/students" class="text-sm text-slate-500 hover:text-slate-700">Cancel</a>
+    </div>
+</form>
+
+{% endblock %}

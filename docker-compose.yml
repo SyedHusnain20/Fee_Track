@@ -30,6 +30,7 @@ services:
     volumes:
       - ./app:/app/app  # remove in production images; convenient for now
       - ./scripts:/app/scripts  # same — live edits without rebuilding
+      - ./alembic:/app/alembic  # same — new migration files show up without rebuilding
     deploy:
       resources:
         limits:

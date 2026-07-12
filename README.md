@@ -1,99 +1,100 @@
-# Raabta — School Management System
+# Step 7, Phase 1 — Students, Teachers, Dashboard
 
-Solo-developer school management system: attendance (QR-based, arrival-time only) + fee management, admin-only, no teacher/parent-facing features (yet — see reserved extension points).
+Phase 1 of "enrollment & fee module (+ bulk of the admin UI)." Enrollment,
+discounts, and fee cycles are Phases 2 and 3 — not in this drop.
 
-## Stack
+## Two scope decisions made before writing any code (see chat for full reasoning)
+1. **Roll-number/QR-token generation moved from Step 8 into now.** Your
+   `Student` table already has `roll_number`/`qr_code` as `NOT NULL UNIQUE`
+   (Step 5's migration) — a Student can't be inserted without them. Only the
+   Section 6 *algorithm* moved earlier; rendering an actual scannable QR
+   *image* (the `qrcode` library) is still Step 8's job.
+2. **Reference data was never seeded.** `ClassLevel` (15 rows) and
+   `CategoryFeeDefault` (4 rows) exist as empty tables — first student
+   creation would have hit a foreign-key violation without this.
 
-FastAPI · SQLModel · Alembic · PostgreSQL · Docker Compose · Nginx · Hetzner VPS
-
-## Local development
-
-1. Copy the env template and fill in real values:
-   ```bash
-   cp .env.example .env
-   ```
-2. Build and start everything:
-   ```bash
-   docker compose up --build
-   ```
-3. Check it's alive:
-   ```bash
-   curl http://localhost/health
-   ```
-
-## Project layout
-
+## Files, and where they go
 ```
-app/
-  core/          # settings, DB engine/session
-  models/        # SQLModel table classes (Step 5)
-  api/           # routers (Steps 6, 8, 9, 10, 11)
-  main.py        # FastAPI app instance
-alembic/         # migrations — env.py reads DATABASE_URL from app.core.config
-nginx/           # reverse proxy in front of the api container
-docker-compose.yml
-Dockerfile
+app/services/__init__.py           → app/services/__init__.py        (new folder)
+app/services/roll_number.py        → app/services/roll_number.py
+app/services/qr_token.py           → app/services/qr_token.py
+app/services/audit.py              → app/services/audit.py
+app/api/students.py                → app/api/students.py
+app/api/teachers.py                → app/api/teachers.py
+app/api/dashboard.py               → app/api/dashboard.py
+app/templates/base.html            → app/templates/base.html
+app/templates/dashboard.html       → app/templates/dashboard.html
+app/templates/students/list.html   → app/templates/students/list.html   (new folder)
+app/templates/students/form.html   → app/templates/students/form.html
+app/templates/teachers/list.html   → app/templates/teachers/list.html   (new folder)
+app/templates/teachers/form.html   → app/templates/teachers/form.html
+scripts/seed_reference_data.py     → scripts/seed_reference_data.py
 ```
 
-## Running migrations
+## One manual edit: `app/main.py`
 
-Once models exist (Step 5):
+Add three more router imports/includes alongside the two from Step 6:
+```python
+from app.api.auth import router as auth_router
+from app.api.admin_accounts import router as admin_accounts_router
+from app.api.dashboard import router as dashboard_router
+from app.api.students import router as students_router
+from app.api.teachers import router as teachers_router
+
+app.include_router(auth_router)
+app.include_router(admin_accounts_router)
+app.include_router(dashboard_router)
+app.include_router(students_router)
+app.include_router(teachers_router)
+```
+
+## Then, in order
+
 ```bash
-docker compose exec api alembic revision --autogenerate -m "add core models"
-docker compose exec api alembic upgrade head
+# 1. these are all Python files under app/ and scripts/ — both are bind-mounted,
+#    so a container restart picks them up without a rebuild
+docker compose up -d
+
+# 2. seed the reference data (idempotent — safe to re-run)
+docker compose exec api python scripts/seed_reference_data.py
+
+# 3. no new tables this phase, so no alembic migration needed — verify:
+docker compose exec api alembic heads
+# should still print: 8f3d1a9b6c22 (head)
 ```
 
-## Repo setup (Step 4)
+No migration step this time — Phase 1 only adds application code and seed
+*data*, not schema.
 
-This folder is already a git repo with Step 3 committed. To push it to GitHub:
+## Verifying it works
+1. Log in at `/login` (your Step 6 super-admin). You should land on `/dashboard`
+   for real now, instead of the 404 you'd have gotten before this phase —
+   showing "0 active students" / "0 active teachers."
+2. `/teachers` → **+ Add teacher** → fill in a staff ID + name → should
+   appear in the list with an auto-generated QR token (not shown in the UI
+   yet — that's Step 8's display work) and Active status.
+3. `/students` → **+ Add student** → pick a class, leave admission year at
+   its default → should get a roll number back. Sanity-check against
+   Section 6's formula: a fresh Class 1 admission in 2026 has offset 3, so
+   cohort code = `(2026 - 3) mod 100` = `23`, and the first student in that
+   cohort gets sequence `001` → roll number `23001`. This matches the
+   spec's own worked examples (Class 12 in 2026 → `12xxx`, Foundation 1 in
+   2026 → `26xxx`) using the same formula.
+4. Add a second Class 1 student the same year — sequence should increment
+   to `002` with the same cohort code as student 1.
+5. Deactivate a student or teacher from the list — status badge should flip
+   to "Inactive," dashboard counts should drop by one.
+6. `ruff check .` and `pytest -v` still green.
 
-1. Create a new **empty** repository on GitHub (no README/license/gitignore — you already have one). Don't make it public unless you're comfortable with the client's data model being visible; private is the safer default for a school system.
-2. Connect and push:
-   ```bash
-   git remote add origin https://github.com/<your-username>/raabta.git
-   git branch -M main
-   git push -u origin main
-   ```
-3. CI runs automatically from that point on — every push and PR to `main` triggers `.github/workflows/ci.yml`, which lints with ruff and runs the test suite. Check the "Actions" tab on GitHub after your first push to confirm it goes green.
+## What's still missing (Phases 2 and 3, not this drop)
+- Enrolling a student into categories, with discounts.
+- Editing the 4 `CategoryFeeDefault` amounts.
+- Generating/marking `FeeCycle` rows paid.
+- Wiring `write_audit_log()` (already built, in `app/services/audit.py`)
+  into the Enrollment and FeeCycle routes — Key Design Principle #7 says
+  this is mandatory for those two entities specifically, so it's held until
+  those routes exist rather than applied to Student/Teacher, which the spec
+  doesn't require it for.
 
-## Running lint/tests locally
-
-Before pushing, you can run exactly what CI runs:
-```bash
-pip install -r requirements.txt -r requirements-dev.txt
-ruff check .
-pytest -v
-```
-
-## Backblaze B2 setup (for nightly backups)
-
-1. Sign up at [backblaze.com](https://www.backblaze.com/cloud-storage) if you haven't already (free tier includes 10GB, plenty for these dumps).
-2. Create a **private** bucket, e.g. `raabta-backups`.
-3. Under Bucket Settings, add a **Lifecycle Rule**: "Keep only the last N days" (30 is reasonable) so old dumps auto-delete instead of accumulating storage cost forever.
-4. Go to **App Keys** → **Add a New Application Key**, scope it to just the `raabta-backups` bucket (not your whole account — smaller blast radius if a key ever leaks).
-5. Copy the `keyID` and `applicationKey` into your `.env`:
-   ```
-   B2_KEY_ID=<your keyID>
-   B2_APPLICATION_KEY=<your applicationKey>
-   B2_BUCKET_NAME=raabta-backups
-   ```
-6. Test it manually:
-   ```bash
-   docker compose exec api python scripts/backup_to_b2.py
-   ```
-   Check the bucket in the B2 web console — you should see a new file under `nightly/`.
-
-## Scheduling nightly backups
-
-This only matters once you're on the actual VPS (Step 15) — no need to set this up on your dev machine. On the server, add a cron job:
-```bash
-crontab -e
-```
-```
-0 2 * * * cd /path/to/raabta && docker compose exec -T api python scripts/backup_to_b2.py >> /var/log/raabta_backup.log 2>&1
-```
-Runs at 2am server time, after the school day is well over.
-
-
-
-See the 15-step roadmap (Section 12 of the project spec, as revised) — this scaffold covers Step 3. Step 5 adds the actual model files under `app/models/`.
+Say "Phase 2" (or "continue") when you're ready and I'll build Enrollment +
+discounts next.

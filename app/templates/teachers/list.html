@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Teachers — Raabta Admin{% endblock %}
+{% block content %}
+
+<div class="flex items-center justify-between mb-6">
+    <h1 class="text-xl font-semibold text-slate-900">Teachers</h1>
+    <a href="/teachers/new" class="rounded-md bg-slate-800 text-white text-sm font-medium px-4 py-2 hover:bg-slate-700">
+        + Add teacher
+    </a>
+</div>
+
+<div class="bg-white border border-slate-200 rounded-xl overflow-hidden">
+    <table class="w-full text-sm">
+        <thead class="bg-slate-50 border-b border-slate-200 text-left text-slate-500">
+            <tr>
+                <th class="px-4 py-3 font-medium">Staff ID</th>
+                <th class="px-4 py-3 font-medium">Name</th>
+                <th class="px-4 py-3 font-medium">Status</th>
+                <th class="px-4 py-3 font-medium text-right">Actions</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+            {% for teacher in teachers %}
+            <tr class="{% if not teacher.is_active %}opacity-50{% endif %}">
+                <td class="px-4 py-3 font-mono text-slate-700">{{ teacher.staff_id }}</td>
+                <td class="px-4 py-3 text-slate-900">{{ teacher.name }}</td>
+                <td class="px-4 py-3">
+                    {% if teacher.is_active %}
+                    <span class="text-xs font-medium text-green-700 bg-green-50 px-2 py-1 rounded">Active</span>
+                    {% else %}
+                    <span class="text-xs font-medium text-slate-500 bg-slate-100 px-2 py-1 rounded">Inactive</span>
+                    {% endif %}
+                </td>
+                <td class="px-4 py-3 text-right space-x-3">
+                    <a href="/teachers/{{ teacher.id }}/edit" class="text-slate-600 hover:text-slate-900">Edit</a>
+                    {% if teacher.is_active %}
+                    <form method="post" action="/teachers/{{ teacher.id }}/deactivate" class="inline" onsubmit="return confirm('Deactivate {{ teacher.name }}?');">
+                        <button type="submit" class="text-red-600 hover:text-red-800">Deactivate</button>
+                    </form>
+                    {% else %}
+                    <form method="post" action="/teachers/{{ teacher.id }}/reactivate" class="inline">
+                        <button type="submit" class="text-green-700 hover:text-green-900">Reactivate</button>
+                    </form>
+                    {% endif %}
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="4" class="px-4 py-8 text-center text-slate-400">No teachers yet.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% endblock %}

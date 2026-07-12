@@ -1,10 +1,24 @@
 from fastapi import FastAPI
 
 from app.core.config import settings
+from app.api.auth import router as auth_router
+from app.api.admin_accounts import router as admin_accounts_router
+from app.api.auth import router as auth_router
+from app.api.admin_accounts import router as admin_accounts_router
+from app.api.dashboard import router as dashboard_router
+from app.api.students import router as students_router
+from app.api.teachers import router as teachers_router
 
 app = FastAPI(title=settings.APP_NAME)
 
+app.include_router(auth_router)
+app.include_router(admin_accounts_router)
+app.include_router(dashboard_router)
+app.include_router(students_router)
+app.include_router(teachers_router)
 
+app.include_router(auth_router)
+app.include_router(admin_accounts_router)
 @app.get("/health")
 def health_check() -> dict:
     """Used by UptimeRobot (Section 10) and Docker healthchecks."""

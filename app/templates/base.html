@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Raabta Admin{% endblock %}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-slate-50">
+
+    <nav class="bg-slate-800 text-white">
+        <div class="max-w-6xl mx-auto px-4 flex items-center justify-between h-14">
+            <div class="flex items-center gap-6">
+                <a href="/dashboard" class="font-semibold flex items-center gap-2">
+                    <span class="inline-flex items-center justify-center w-7 h-7 rounded bg-white text-slate-800 text-sm font-bold">R</span>
+                    Raabta
+                </a>
+                <a href="/students" class="text-sm text-slate-300 hover:text-white">Students</a>
+                <a href="/teachers" class="text-sm text-slate-300 hover:text-white">Teachers</a>
+                <span class="text-sm text-slate-500" title="Coming in Phase 2">Enrollment</span>
+                <span class="text-sm text-slate-500" title="Coming in Phase 3">Fees</span>
+            </div>
+            <div class="flex items-center gap-4">
+                {% if admin %}
+                <span class="text-sm text-slate-300">{{ admin.name }}{% if admin.is_super_admin %} · Super Admin{% endif %}</span>
+                {% endif %}
+                <form method="post" action="/logout">
+                    <button type="submit" class="text-sm text-slate-300 hover:text-white">Log out</button>
+                </form>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-6xl mx-auto px-4 py-8">
+        {% block content %}{% endblock %}
+    </main>
+
+</body>
+</html>

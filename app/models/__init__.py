@@ -1,3 +1,4 @@
+from app.models.admin_session import AdminSession
 from app.models.admin_user import AdminUser
 from app.models.attendance_record import AttendanceRecord
 from app.models.audit_log import AuditLog
@@ -11,6 +12,7 @@ from app.models.system_setting import SystemSetting
 from app.models.teacher import Teacher
 
 __all__ = [
+    "AdminSession",
     "AdminUser",
     "AttendanceRecord",
     "AuditLog",

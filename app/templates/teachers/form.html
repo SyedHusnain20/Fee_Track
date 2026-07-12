@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}{% if teacher %}Edit{% else %}Add{% endif %} Teacher — Raabta Admin{% endblock %}
+{% block content %}
+
+<h1 class="text-xl font-semibold text-slate-900 mb-6">
+    {% if teacher %}Edit {{ teacher.name }}{% else %}Add a teacher{% endif %}
+</h1>
+
+<form method="post" action="{% if teacher %}/teachers/{{ teacher.id }}{% else %}/teachers{% endif %}"
+      class="bg-white border border-slate-200 rounded-xl shadow-sm p-6 space-y-4 max-w-xl">
+
+    {% if error %}
+    <div class="text-sm text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-2">{{ error }}</div>
+    {% endif %}
+
+    {% if teacher %}
+    <div class="text-sm text-slate-500">
+        Staff ID <span class="font-mono text-slate-700">{{ teacher.staff_id }}</span> — can't be changed here.
+    </div>
+    {% else %}
+    <div>
+        <label for="staff_id" class="block text-sm font-medium text-slate-700 mb-1">Staff ID</label>
+        <input type="text" name="staff_id" id="staff_id" required maxlength="20"
+               class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-800 focus:border-slate-800">
+    </div>
+    {% endif %}
+
+    <div>
+        <label for="name" class="block text-sm font-medium text-slate-700 mb-1">Teacher name</label>
+        <input type="text" name="name" id="name" required
+               value="{{ teacher.name if teacher else '' }}"
+               class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-800 focus:border-slate-800">
+    </div>
+
+    <div class="flex items-center gap-3 pt-2">
+        <button type="submit" class="rounded-md bg-slate-800 text-white text-sm font-medium px-4 py-2 hover:bg-slate-700">
+            {% if teacher %}Save changes{% else %}Create teacher{% endif %}
+        </button>
+        <a href="/teachers" class="text-sm text-slate-500 hover:text-slate-700">Cancel</a>
+    </div>
+</form>
+
+{% endblock %}
