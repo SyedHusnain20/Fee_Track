@@ -1,0 +1,195 @@
+{% extends "base.html" %}
+{% block title %}{{ student.name }} — Raabta Admin{% endblock %}
+{% block content %}
+
+<div class="flex items-center justify-between mb-6">
+    <div class="flex items-center gap-4">
+        <img src="/students/{{ student.id }}/qr-code.png" alt="QR code" class="w-16 h-16 border border-slate-200 rounded">
+        <div>
+            <h1 class="text-xl font-semibold text-slate-900">{{ student.name }}</h1>
+            <p class="text-sm text-slate-500">
+                Roll <span class="font-mono">{{ student.roll_number }}</span> ·
+                {{ student.class_level.name }} ·
+                {% if student.is_active %}
+                <span class="text-green-700">Active</span>
+                {% else %}
+                <span class="text-slate-500">Inactive</span>
+                {% endif %}
+            </p>
+        </div>
+    </div>
+    <div class="flex items-center gap-4 text-sm">
+        <a href="/students/{{ student.id }}/id-card" target="_blank" class="text-slate-600 hover:text-slate-900">Print ID card</a>
+        <a href="/students/{{ student.id }}/edit" class="text-slate-600 hover:text-slate-900">Edit student</a>
+    </div>
+</div>
+
+{% if enrollment_error %}
+<div class="text-sm text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-2 mb-6">{{ enrollment_error }}</div>
+{% endif %}
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+    <div class="lg:col-span-2 space-y-6">
+
+        <div class="bg-white border border-slate-200 rounded-xl overflow-hidden">
+            <div class="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
+                <h2 class="text-sm font-semibold text-slate-900">Active enrollments</h2>
+                <span class="text-sm text-slate-500">Total: Rs {{ "%.2f"|format(total_fee) }}/mo</span>
+            </div>
+            <table class="w-full text-sm">
+                <thead class="bg-slate-50 text-left text-slate-500">
+                    <tr>
+                        <th class="px-4 py-2 font-medium">Category</th>
+                        <th class="px-4 py-2 font-medium">Default</th>
+                        <th class="px-4 py-2 font-medium">Discount</th>
+                        <th class="px-4 py-2 font-medium">Net fee</th>
+                        <th class="px-4 py-2 font-medium text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    {% for row in fee_rows %}
+                    <tr>
+                        <td class="px-4 py-3 text-slate-900">{{ category_labels[row.enrollment.category] }}</td>
+                        <td class="px-4 py-3 text-slate-500">Rs {{ "%.2f"|format(row.default_amount) }}</td>
+                        <td class="px-4 py-3 text-slate-500">
+                            <form method="post" action="/students/{{ student.id }}/enrollments/{{ row.enrollment.id }}/update" class="flex items-center gap-2">
+                                <select name="discount_type" class="rounded border border-slate-300 text-xs px-1.5 py-1">
+                                    {% for dt in discount_types %}
+                                    <option value="{{ dt.value }}" {% if row.enrollment.discount_type == dt %}selected{% endif %}>{{ discount_type_labels[dt] }}</option>
+                                    {% endfor %}
+                                </select>
+                                <input type="text" name="discount_value" placeholder="value"
+                                       value="{{ row.enrollment.discount_value if row.enrollment.discount_value is not none else '' }}"
+                                       class="w-20 rounded border border-slate-300 text-xs px-1.5 py-1">
+                                <button type="submit" class="text-xs text-slate-600 hover:text-slate-900 underline">Save</button>
+                            </form>
+                        </td>
+                        <td class="px-4 py-3 font-medium text-slate-900">Rs {{ "%.2f"|format(row.computed_fee) }}</td>
+                        <td class="px-4 py-3 text-right">
+                            <form method="post" action="/students/{{ student.id }}/enrollments/{{ row.enrollment.id }}/end" class="inline" onsubmit="return confirm('End this enrollment?');">
+                                <button type="submit" class="text-xs text-red-600 hover:text-red-800">End</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5" class="px-4 py-6 text-center text-slate-400">Not enrolled in any category yet.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="bg-white border border-slate-200 rounded-xl overflow-hidden">
+            <div class="px-4 py-3 border-b border-slate-200">
+                <h2 class="text-sm font-semibold text-slate-900">Fee history</h2>
+            </div>
+            <table class="w-full text-sm">
+                <thead class="bg-slate-50 text-left text-slate-500">
+                    <tr>
+                        <th class="px-4 py-2 font-medium">Period</th>
+                        <th class="px-4 py-2 font-medium">Amount</th>
+                        <th class="px-4 py-2 font-medium">Status</th>
+                        <th class="px-4 py-2 font-medium">Paid date</th>
+                        <th class="px-4 py-2 font-medium text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    {% for cycle in fee_cycles %}
+                    <tr>
+                        <td class="px-4 py-3 text-slate-900">{{ cycle.period }}</td>
+                        <td class="px-4 py-3 text-slate-700">Rs {{ "%.2f"|format(cycle.total_due) }}</td>
+                        <td class="px-4 py-3">
+                            {% if cycle.status.value == "paid" %}
+                            <span class="text-xs font-medium text-green-700 bg-green-50 px-2 py-1 rounded">Paid</span>
+                            {% else %}
+                            <span class="text-xs font-medium text-amber-700 bg-amber-50 px-2 py-1 rounded">Unpaid</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3 text-slate-500">{{ cycle.paid_date.strftime('%Y-%m-%d') if cycle.paid_date else '—' }}</td>
+                        <td class="px-4 py-3 text-right">
+                            {% if cycle.status.value == "paid" %}
+                            <form method="post" action="/fee-cycles/{{ cycle.id }}/mark-unpaid" class="inline">
+                                <input type="hidden" name="next" value="/students/{{ student.id }}">
+                                <button type="submit" class="text-xs text-slate-600 hover:text-slate-900 underline">Mark unpaid</button>
+                            </form>
+                            {% else %}
+                            <form method="post" action="/fee-cycles/{{ cycle.id }}/mark-paid" class="inline">
+                                <input type="hidden" name="next" value="/students/{{ student.id }}">
+                                <button type="submit" class="text-xs text-green-700 hover:text-green-900 underline">Mark paid</button>
+                            </form>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5" class="px-4 py-6 text-center text-slate-400">No fee cycles generated for this student yet.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if past_enrollments %}
+        <div class="bg-white border border-slate-200 rounded-xl overflow-hidden">
+            <div class="px-4 py-3 border-b border-slate-200">
+                <h2 class="text-sm font-semibold text-slate-900">Enrollment history</h2>
+            </div>
+            <table class="w-full text-sm">
+                <tbody class="divide-y divide-slate-100">
+                    {% for e in past_enrollments %}
+                    <tr class="text-slate-500">
+                        <td class="px-4 py-2">{{ category_labels[e.category] }}</td>
+                        <td class="px-4 py-2">Ended {{ e.updated_at.strftime('%Y-%m-%d') if e.updated_at else '—' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+
+    </div>
+
+    <div>
+        {% if available_categories %}
+        <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-5">
+            <h2 class="text-sm font-semibold text-slate-900 mb-4">Add enrollment</h2>
+            <form method="post" action="/students/{{ student.id }}/enrollments" class="space-y-3">
+                <div>
+                    <label class="block text-xs font-medium text-slate-700 mb-1">Category</label>
+                    <select name="category" class="w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm">
+                        {% for c in available_categories %}
+                        <option value="{{ c.value }}">{{ category_labels[c] }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-700 mb-1">Discount</label>
+                    <select name="discount_type" class="w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm">
+                        {% for dt in discount_types %}
+                        <option value="{{ dt.value }}">{{ discount_type_labels[dt] }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-700 mb-1">Discount value</label>
+                    <input type="text" name="discount_value" placeholder="Rs amount or %"
+                           class="w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm">
+                    <p class="text-xs text-slate-400 mt-1">Leave blank if discount is "None."</p>
+                </div>
+                <button type="submit" class="w-full rounded-md bg-slate-800 text-white text-sm font-medium py-2 hover:bg-slate-700">
+                    Enroll
+                </button>
+            </form>
+        </div>
+        {% else %}
+        <div class="bg-white border border-slate-200 rounded-xl p-5 text-sm text-slate-500">
+            Enrolled in every category already.
+        </div>
+        {% endif %}
+    </div>
+
+</div>
+
+{% endblock %}

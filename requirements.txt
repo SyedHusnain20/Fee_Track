@@ -9,6 +9,6 @@ argon2-cffi==23.1.0
 python-multipart==0.0.20
 jinja2==3.1.5
 itsdangerous==2.2.0
-qrcode[pil]==8.0
+qrcode[pil]==8.2
 openpyxl==3.1.5
 b2sdk==2.7.0

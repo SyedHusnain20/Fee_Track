@@ -38,6 +38,7 @@
                     {% endif %}
                 </td>
                 <td class="px-4 py-3 text-right space-x-3">
+                    <a href="/students/{{ student.id }}" class="text-slate-600 hover:text-slate-900">View</a>
                     <a href="/students/{{ student.id }}/edit" class="text-slate-600 hover:text-slate-900">Edit</a>
                     {% if student.is_active %}
                     <form method="post" action="/students/{{ student.id }}/deactivate" class="inline" onsubmit="return confirm('Deactivate {{ student.name }}?');">
