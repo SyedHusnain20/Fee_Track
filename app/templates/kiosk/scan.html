@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Raabta — Attendance Kiosk</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-slate-900 text-white flex flex-col items-center justify-center p-6" onclick="focusInput()">
+
+    <div class="w-full max-w-md text-center">
+        <h1 class="text-2xl font-semibold mb-1">Raabta Attendance</h1>
+        <p class="text-slate-400 text-sm mb-8">Scan a student or teacher ID</p>
+
+        <div class="mb-8">
+            <label class="block text-sm text-slate-400 mb-2">Current session</label>
+            <select id="category-select" class="w-full rounded-lg bg-slate-800 border border-slate-700 text-white text-lg px-4 py-3 text-center">
+                {% for value, label in categories %}
+                <option value="{{ value }}">{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- Hidden input a USB/handheld QR scanner "types" into — scanners
+             act as keyboard-wedge devices, sending the scanned text plus a
+             trailing Enter to whatever element currently has focus. -->
+        <input type="text" id="scan-input" autocomplete="off" class="opacity-0 absolute -z-10 pointer-events-none" autofocus>
+
+        <div id="result" class="rounded-xl p-8 min-h-[180px] flex flex-col items-center justify-center bg-slate-800 border border-slate-700 transition-colors">
+            <div id="result-icon" class="text-5xl mb-3">📷</div>
+            <div id="result-text" class="text-lg text-slate-400">Ready to scan</div>
+        </div>
+
+        <p class="text-xs text-slate-600 mt-6">Set the session above before scanning a batch of arrivals.</p>
+    </div>
+
+    <script>
+        const input = document.getElementById('scan-input');
+        const categorySelect = document.getElementById('category-select');
+        const resultBox = document.getElementById('result');
+        const resultIcon = document.getElementById('result-icon');
+        const resultText = document.getElementById('result-text');
+        let resetTimer = null;
+
+        function focusInput() {
+            input.focus();
+        }
+        focusInput();
+        // Scanners type into whatever currently has focus — keep stealing
+        // it back in case a click (or the browser itself) moved it.
+        setInterval(focusInput, 1000);
+
+        function resetResult() {
+            resultIcon.textContent = '📷';
+            resultText.textContent = 'Ready to scan';
+            resultBox.className = 'rounded-xl p-8 min-h-[180px] flex flex-col items-center justify-center bg-slate-800 border border-slate-700 transition-colors';
+        }
+
+        function showResult(kind, iconChar, text) {
+            resultIcon.textContent = iconChar;
+            resultText.textContent = text;
+            const colors = {
+                ok: 'bg-green-900 border-green-700',
+                late: 'bg-amber-900 border-amber-700',
+                error: 'bg-red-900 border-red-700',
+            };
+            resultBox.className = 'rounded-xl p-8 min-h-[180px] flex flex-col items-center justify-center border transition-colors ' + colors[kind];
+            clearTimeout(resetTimer);
+            resetTimer = setTimeout(resetResult, 4000);
+        }
+
+        async function submitScan(token) {
+            const category = categorySelect.value;
+            try {
+                const response = await fetch('/kiosk/scan', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: new URLSearchParams({ token, category }),
+                });
+                const data = await response.json();
+                if (data.ok) {
+                    const late = data.punctuality_status === 'late';
+                    showResult(late ? 'late' : 'ok', late ? '⚠' : '✓', `${data.person_name} — ${late ? 'Late' : 'On time'} (${data.arrival_time})`);
+                } else {
+                    showResult('error', '✗', data.message);
+                }
+            } catch (err) {
+                showResult('error', '✗', 'Network error — try again.');
+            }
+        }
+
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                const token = input.value.trim();
+                input.value = '';
+                if (token) {
+                    submitScan(token);
+                }
+            }
+        });
+    </script>
+
+</body>
+</html>

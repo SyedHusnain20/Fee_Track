@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Settings — Raabta Admin{% endblock %}
+{% block content %}
+
+<h1 class="text-xl font-semibold text-slate-900 mb-1">Attendance timing</h1>
+<p class="text-sm text-slate-500 mb-6">
+    Used by the attendance kiosk to mark scans on-time or late. These are seeded with placeholder values — review and correct them before relying on the kiosk for real attendance.
+</p>
+
+{% if error %}
+<div class="text-sm text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-2 mb-6">{{ error }}</div>
+{% endif %}
+
+<div class="bg-white border border-slate-200 rounded-xl overflow-hidden max-w-2xl">
+    <table class="w-full text-sm">
+        <thead class="bg-slate-50 border-b border-slate-200 text-left text-slate-500">
+            <tr>
+                <th class="px-4 py-3 font-medium">Category</th>
+                <th class="px-4 py-3 font-medium">Timing</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+            {% for row in rows %}
+            <tr>
+                <td class="px-4 py-3 text-slate-900 align-top">{{ row.label }}</td>
+                <td class="px-4 py-3">
+                    <form method="post" action="/settings/{{ row.category.value }}" class="flex items-center gap-3">
+                        <div>
+                            <label class="block text-xs text-slate-500 mb-1">Start time</label>
+                            <input type="time" name="start_time"
+                                   value="{{ '%02d:%02d'|format(row.start_time.hour, row.start_time.minute) if row.start_time else '' }}"
+                                   class="rounded border border-slate-300 text-sm px-2 py-1.5">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-slate-500 mb-1">Grace (min)</label>
+                            <input type="number" name="grace_minutes" value="{{ row.grace_minutes }}" min="0" max="120"
+                                   class="w-20 rounded border border-slate-300 text-sm px-2 py-1.5">
+                        </div>
+                        <button type="submit" class="text-xs text-slate-600 hover:text-slate-900 underline mt-4">Save</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% endblock %}

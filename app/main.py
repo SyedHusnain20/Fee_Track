@@ -24,6 +24,8 @@ from app.api.enrollments import router as enrollments_router
 from app.api.category_fees import router as category_fees_router
 from app.api.fee_cycles import router as fee_cycles_router
 from app.api.id_cards import router as id_cards_router
+from app.api.kiosk import router as kiosk_router
+from app.api.settings import router as settings_router
 
 
 app = FastAPI(title=settings.APP_NAME)
@@ -51,6 +53,8 @@ app.include_router(fee_cycles_router)
 app.include_router(auth_router)
 app.include_router(admin_accounts_router)
 app.include_router(id_cards_router)
+app.include_router(kiosk_router)
+app.include_router(settings_router)
 
 
 @app.get("/health")

@@ -5,7 +5,7 @@
 <h1 class="text-xl font-semibold text-slate-900 mb-1">Welcome, {{ admin.name }}</h1>
 <p class="text-sm text-slate-500 mb-8">Here's where things stand.</p>
 
-<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
     <a href="/students" class="block bg-white border border-slate-200 rounded-xl p-6 hover:border-slate-400 transition-colors">
         <div class="text-3xl font-semibold text-slate-900">{{ active_students }}</div>
         <div class="text-sm text-slate-500 mt-1">Active students</div>
@@ -14,10 +14,14 @@
         <div class="text-3xl font-semibold text-slate-900">{{ active_teachers }}</div>
         <div class="text-sm text-slate-500 mt-1">Active teachers</div>
     </a>
+    <a href="/kiosk" target="_blank" class="block bg-slate-800 rounded-xl p-6 hover:bg-slate-700 transition-colors">
+        <div class="text-lg font-semibold text-white">Open kiosk ↗</div>
+        <div class="text-sm text-slate-400 mt-1">Attendance scan page — bookmark this on the gate device</div>
+    </a>
 </div>
 
 <p class="text-xs text-slate-400 mt-8">
-    Enrollment, fee cycles, attendance, and reporting widgets land here as the rest of Step 7 and Steps 8–10 are built.
+    Reporting widgets land here in Step 10.
 </p>
 
 {% endblock %}
