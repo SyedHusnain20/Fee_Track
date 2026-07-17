@@ -3,25 +3,12 @@ from fastapi import FastAPI
 from app.core.config import settings
 from app.api.auth import router as auth_router
 from app.api.admin_accounts import router as admin_accounts_router
-from app.api.auth import router as auth_router
-from app.api.admin_accounts import router as admin_accounts_router
-from app.api.dashboard import router as dashboard_router
-from app.api.students import router as students_router
-from app.api.teachers import router as teachers_router
-from app.api.auth import router as auth_router
-from app.api.admin_accounts import router as admin_accounts_router
 from app.api.dashboard import router as dashboard_router
 from app.api.students import router as students_router
 from app.api.teachers import router as teachers_router
 from app.api.enrollments import router as enrollments_router
 from app.api.category_fees import router as category_fees_router
-from app.api.auth import router as auth_router
-from app.api.admin_accounts import router as admin_accounts_router
-from app.api.dashboard import router as dashboard_router
-from app.api.students import router as students_router
-from app.api.teachers import router as teachers_router
-from app.api.enrollments import router as enrollments_router
-from app.api.category_fees import router as category_fees_router
+
 from app.api.fee_cycles import router as fee_cycles_router
 from app.api.id_cards import router as id_cards_router
 from app.api.kiosk import router as kiosk_router
@@ -35,23 +22,9 @@ app.include_router(admin_accounts_router)
 app.include_router(dashboard_router)
 app.include_router(students_router)
 app.include_router(teachers_router)
-app.include_router(auth_router)
-app.include_router(admin_accounts_router)
-app.include_router(dashboard_router)
-app.include_router(students_router)
-app.include_router(teachers_router)
-app.include_router(enrollments_router)
-app.include_router(category_fees_router)
-app.include_router(auth_router)
-app.include_router(admin_accounts_router)
-app.include_router(dashboard_router)
-app.include_router(students_router)
-app.include_router(teachers_router)
 app.include_router(enrollments_router)
 app.include_router(category_fees_router)
 app.include_router(fee_cycles_router)
-app.include_router(auth_router)
-app.include_router(admin_accounts_router)
 app.include_router(id_cards_router)
 app.include_router(kiosk_router)
 app.include_router(settings_router)
