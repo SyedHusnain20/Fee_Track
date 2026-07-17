@@ -83,7 +83,13 @@ async def edit_teacher_form(
     if not teacher:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Teacher not found.")
     return templates.TemplateResponse(
-        "teachers/form.html", {"request": request, "admin": admin, "teacher": teacher, "error": None}
+        "teachers/form.html",
+        {
+            "request": request,
+            "admin": admin,
+            "teacher": teacher,
+            "error": None,
+        },
     )
 
 
