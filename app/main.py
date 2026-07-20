@@ -13,6 +13,7 @@ from app.api.fee_cycles import router as fee_cycles_router
 from app.api.id_cards import router as id_cards_router
 from app.api.kiosk import router as kiosk_router
 from app.api.settings import router as settings_router
+from app.api.reports import router as reports_router
 
 
 app = FastAPI(title=settings.APP_NAME)
@@ -28,6 +29,7 @@ app.include_router(fee_cycles_router)
 app.include_router(id_cards_router)
 app.include_router(kiosk_router)
 app.include_router(settings_router)
+app.include_router(reports_router)
 
 
 @app.get("/health")

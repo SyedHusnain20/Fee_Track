@@ -1,7 +1,10 @@
-"""Attendance scan processing — Step 9. Core logic behind the kiosk's
-POST /kiosk/scan endpoint: resolve a scanned QR token to a Student or
-Teacher, compute on-time/late against the currently-selected category's
-configured start time + grace period, and write the AttendanceRecord.
+"""Attendance scan processing — Step 9, updated for the School/Academy
+redesign. Core logic behind the kiosk's POST /kiosk/scan endpoint: resolve
+a scanned QR token to a Student or Teacher, and record an AttendanceRecord
+against one of two kiosk sessions — School (on-time/late judgment against
+a configured start time + grace period) or Academy (covers all of
+Coaching/English/Computer under one daily scan, arrival time logged with
+no punctuality judgment at all).
 
 Deliberately not authenticated and deliberately minimal in what it returns
 — per spec, "the attendance kiosk is not a role... cannot read back any
@@ -19,10 +22,10 @@ from zoneinfo import ZoneInfo
 from sqlmodel import Session, select
 
 from app.models.attendance_record import AttendanceRecord
-from app.models.enums import FeeCategory, PunctualityStatus
+from app.models.enums import AttendanceSession, PunctualityStatus
 from app.models.student import Student
 from app.models.teacher import Teacher
-from app.services.attendance_settings import get_category_grace_minutes, get_category_start_time
+from app.services.attendance_settings import get_session_grace_minutes, get_session_start_time
 
 # Hardcoded rather than trusting the server process's local time zone —
 # python:3.12-slim doesn't ship IANA tzdata by default, so datetime.now()
@@ -48,7 +51,7 @@ def _compute_punctuality(arrival: time, start_time: time, grace_minutes: int) ->
     return PunctualityStatus.ON_TIME if arrival <= cutoff else PunctualityStatus.LATE
 
 
-def process_scan(session: Session, token: str, category: FeeCategory) -> ScanResult:
+def process_scan(session: Session, token: str, attendance_session: AttendanceSession) -> ScanResult:
     person: Optional[Union[Student, Teacher]] = session.exec(
         select(Student).where(Student.qr_code == token)
     ).first()
@@ -71,7 +74,7 @@ def process_scan(session: Session, token: str, category: FeeCategory) -> ScanRes
 
     existing_query = select(AttendanceRecord).where(
         AttendanceRecord.scan_date == scan_date,
-        AttendanceRecord.category == category,
+        AttendanceRecord.session == attendance_session,
     )
     existing_query = existing_query.where(
         AttendanceRecord.student_id == person.id
@@ -85,27 +88,33 @@ def process_scan(session: Session, token: str, category: FeeCategory) -> ScanRes
             ok=False,
             kind="duplicate",
             message=(
-                f"{person.name} already scanned for {category.value} today "
+                f"{person.name} already scanned for {attendance_session.value} today "
                 f"at {already_scanned.arrival_time.strftime('%H:%M')}."
             ),
         )
 
-    start_time = get_category_start_time(session, category)
-    if start_time is None:
-        return ScanResult(
-            ok=False,
-            kind="unconfigured",
-            message=f"No start time configured for {category.value} yet — set it on the Settings page first.",
-        )
-    grace_minutes = get_category_grace_minutes(session, category)
-    punctuality_status = _compute_punctuality(arrival_time, start_time, grace_minutes)
+    punctuality_status: Optional[PunctualityStatus] = None
+
+    if attendance_session == AttendanceSession.SCHOOL:
+        start_time = get_session_start_time(session, attendance_session)
+        if start_time is None:
+            return ScanResult(
+                ok=False,
+                kind="unconfigured",
+                message="No start time configured for School yet — set it on the Settings page first.",
+            )
+        grace_minutes = get_session_grace_minutes(session, attendance_session)
+        punctuality_status = _compute_punctuality(arrival_time, start_time, grace_minutes)
+    # Academy: deliberately no punctuality judgment. Academy's own start
+    # time, if configured, is reference/reporting-only — never read here,
+    # never blocks a scan if unset.
 
     record = AttendanceRecord(
         student_id=person.id if person_type == "student" else None,
         teacher_id=person.id if person_type == "teacher" else None,
         scan_date=scan_date,
         arrival_time=arrival_time,
-        category=category,
+        session=attendance_session,
         punctuality_status=punctuality_status,
     )
     session.add(record)

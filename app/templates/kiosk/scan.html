@@ -14,8 +14,8 @@
 
         <div class="mb-8">
             <label class="block text-sm text-slate-400 mb-2">Current session</label>
-            <select id="category-select" class="w-full rounded-lg bg-slate-800 border border-slate-700 text-white text-lg px-4 py-3 text-center">
-                {% for value, label in categories %}
+            <select id="session-select" class="w-full rounded-lg bg-slate-800 border border-slate-700 text-white text-lg px-4 py-3 text-center">
+                {% for value, label in sessions %}
                 <option value="{{ value }}">{{ label }}</option>
                 {% endfor %}
             </select>
@@ -36,13 +36,17 @@
 
     <script>
         const input = document.getElementById('scan-input');
-        const categorySelect = document.getElementById('category-select');
+        const sessionSelect = document.getElementById('session-select');
         const resultBox = document.getElementById('result');
         const resultIcon = document.getElementById('result-icon');
         const resultText = document.getElementById('result-text');
         let resetTimer = null;
 
         function focusInput() {
+            // Don't steal focus while the dropdown itself is focused — this
+            // was the original bug: the interval (and the body's onclick)
+            // yanked focus back before the native option list could open.
+            if (document.activeElement === sessionSelect) return;
             input.focus();
         }
         focusInput();
@@ -62,6 +66,7 @@
             const colors = {
                 ok: 'bg-green-900 border-green-700',
                 late: 'bg-amber-900 border-amber-700',
+                neutral: 'bg-sky-900 border-sky-700',
                 error: 'bg-red-900 border-red-700',
             };
             resultBox.className = 'rounded-xl p-8 min-h-[180px] flex flex-col items-center justify-center border transition-colors ' + colors[kind];
@@ -70,17 +75,22 @@
         }
 
         async function submitScan(token) {
-            const category = categorySelect.value;
+            const session = sessionSelect.value;
             try {
                 const response = await fetch('/kiosk/scan', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: new URLSearchParams({ token, category }),
+                    body: new URLSearchParams({ token, session }),
                 });
                 const data = await response.json();
                 if (data.ok) {
-                    const late = data.punctuality_status === 'late';
-                    showResult(late ? 'late' : 'ok', late ? '⚠' : '✓', `${data.person_name} — ${late ? 'Late' : 'On time'} (${data.arrival_time})`);
+                    if (data.punctuality_status === null) {
+                        // Academy scan — no late/on-time judgment, just logged.
+                        showResult('neutral', '🕒', `${data.person_name} — Logged (${data.arrival_time})`);
+                    } else {
+                        const late = data.punctuality_status === 'late';
+                        showResult(late ? 'late' : 'ok', late ? '⚠' : '✓', `${data.person_name} — ${late ? 'Late' : 'On time'} (${data.arrival_time})`);
+                    }
                 } else {
                     showResult('error', '✗', data.message);
                 }

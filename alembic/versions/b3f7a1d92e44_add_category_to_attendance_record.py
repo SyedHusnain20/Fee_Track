@@ -19,15 +19,11 @@ from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
-# revision identifiers, used by Alembic.
 revision = "b3f7a1d92e44"
 down_revision = "8f3d1a9b6c22"
 branch_labels = None
 depends_on = None
 
-# Reusing the existing "feecategory" Postgres enum type (created back in
-# Step 5 for Enrollment.category / CategoryFeeDefault.category) —
-# create_type=False so this doesn't try to create a second, colliding type.
 _fee_category_enum = postgresql.ENUM(
     "school", "coaching", "english", "computer",
     name="feecategory", create_type=False,

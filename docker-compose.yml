@@ -27,6 +27,8 @@ services:
         condition: service_healthy
     expose:
       - "8000"
+    environment:
+      - PYTHONDONTWRITEBYTECODE=1
     volumes:
       - ./app:/app/app  # remove in production images; convenient for now
       - ./scripts:/app/scripts  # same — live edits without rebuilding
