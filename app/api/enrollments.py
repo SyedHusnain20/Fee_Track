@@ -26,6 +26,7 @@ from app.models.enrollment import Enrollment
 from app.models.enums import AuditAction, DiscountType, EnrollmentStatus, FeeCategory
 from app.models.student import Student
 from app.services.audit import write_audit_log
+from app.services.fees import get_band_fee
 
 router = APIRouter(prefix="/students/{student_id}/enrollments", tags=["enrollments"])
 templates = Jinja2Templates(directory="app/templates")
@@ -96,6 +97,13 @@ async def create_enrollment(
     except ValueError as exc:
         return _error_response(request, session, admin, student, str(exc))
 
+    class_offset = student.class_level.class_offset
+    if get_band_fee(session, category, class_offset) is None:
+        return _error_response(
+            request, session, admin, student,
+            f"{student.name}'s class level isn't eligible for {category.value} enrollment.",
+        )
+        
     enrollment = Enrollment(
         student_id=student_id,
         category=category,

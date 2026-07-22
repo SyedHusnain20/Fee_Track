@@ -50,6 +50,7 @@
         <button type="submit" class="text-sm bg-slate-800 text-white rounded-md px-4 py-2 hover:bg-slate-700">
             Confirm &amp; Run Archive
         </button>
+        <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
     </form>
     {% endif %}
 {% endif %}

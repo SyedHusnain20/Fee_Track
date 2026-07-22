@@ -8,6 +8,7 @@
 
 <form method="post" action="{% if teacher %}/teachers/{{ teacher.id }}{% else %}/teachers{% endif %}"
       class="bg-white border border-slate-200 rounded-xl shadow-sm p-6 space-y-4 max-w-xl">
+    <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
 
     {% if error %}
     <div class="text-sm text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-2">{{ error }}</div>

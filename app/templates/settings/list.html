@@ -30,6 +30,7 @@
                             <input type="time" name="start_time"
                                    value="{{ '%02d:%02d'|format(row.start_time.hour, row.start_time.minute) if row.start_time else '' }}"
                                    class="rounded border border-slate-300 text-sm px-2 py-1.5">
+                            <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
                         </div>
                         {% if row.has_grace %}
                         <div>

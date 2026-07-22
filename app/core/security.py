@@ -1,11 +1,15 @@
-"""Password hashing and session-token utilities for admin authentication.
+"""Password hashing, session-token, and CSRF-token utilities for admin
+authentication.
 
-Step 6.
+Step 6 (hashing/sessions), Step 13 (CSRF).
 """
 import secrets
 from datetime import datetime, timedelta
 
+from itsdangerous import BadSignature, URLSafeSerializer
 from passlib.context import CryptContext
+
+from app.core.config import settings
 
 # Argon2id is the current OWASP-recommended default: memory-hard, and it
 # sidesteps the bcrypt-72-byte-truncation / passlib-bcrypt version-pinning
@@ -22,6 +26,10 @@ SESSION_LIFETIME = timedelta(hours=12)
 # not. Without this, response timing alone can be used to enumerate valid
 # admin emails.
 _DUMMY_HASH = pwd_context.hash(secrets.token_urlsafe(32))
+
+# CSRF tokens are deterministically derived from the session token, signed
+# with the app's SECRET_KEY — no separate server-side storage needed.
+_csrf_serializer = URLSafeSerializer(settings.SECRET_KEY, salt="csrf-token")
 
 
 def hash_password(plain_password: str) -> str:
@@ -47,3 +55,19 @@ def new_expiry() -> datetime:
     # compared, so this stays consistent with the rest of the codebase
     # rather than "more correct" in isolation.
     return datetime.utcnow() + SESSION_LIFETIME
+
+
+def generate_csrf_token(session_token: str) -> str:
+    """Deterministic per-session token: the same session_token always
+    produces the same csrf_token, so nothing needs to be stored
+    server-side — verification just re-derives and compares against the
+    live session cookie."""
+    return _csrf_serializer.dumps(session_token)
+
+
+def verify_csrf_token(submitted_token: str, session_token: str) -> bool:
+    try:
+        decoded = _csrf_serializer.loads(submitted_token)
+    except BadSignature:
+        return False
+    return decoded == session_token

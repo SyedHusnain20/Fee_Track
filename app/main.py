@@ -16,9 +16,10 @@ from app.api.settings import router as settings_router
 from app.api.reports import router as reports_router
 from app.api.rollover import router as rollover_router
 from app.api.archive import router as archive_router
+from fastapi import FastAPI, Depends
+from app.core.csrf import csrf_protect
 
-
-app = FastAPI(title=settings.APP_NAME)
+app = FastAPI(title=settings.APP_NAME, dependencies=[Depends(csrf_protect)])
 
 app.include_router(auth_router)
 app.include_router(admin_accounts_router)

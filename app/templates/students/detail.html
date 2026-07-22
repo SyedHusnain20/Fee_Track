@@ -28,6 +28,48 @@
 <div class="text-sm text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-2 mb-6">{{ enrollment_error }}</div>
 {% endif %}
 
+{% if show_school_attendance or show_academy_attendance %}
+<div class="bg-white border border-slate-200 rounded-xl p-4 mb-6">
+    <h2 class="text-sm font-semibold text-slate-900 mb-3">Last 7 days</h2>
+
+    {% if show_school_attendance %}
+    <div class="{% if show_academy_attendance %}mb-4{% endif %}">
+        <div class="text-xs text-slate-500 mb-1.5">School</div>
+        <div class="flex gap-2">
+            {% for day in school_attendance_strip %}
+            <div class="flex flex-col items-center">
+                <span class="text-[10px] text-slate-400 mb-1">{{ day.date.strftime('%a') }}</span>
+                {% if day.present %}
+                <div class="w-7 h-7 rounded bg-green-100 border border-green-300 flex items-center justify-center text-green-700 text-sm font-medium" title="{{ day.date }} — present">✓</div>
+                {% else %}
+                <div class="w-7 h-7 rounded bg-red-100 border border-red-300 flex items-center justify-center text-red-700 text-sm font-medium" title="{{ day.date }} — absent">✕</div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    {% if show_academy_attendance %}
+    <div>
+        <div class="text-xs text-slate-500 mb-1.5">Academy</div>
+        <div class="flex gap-2">
+            {% for day in academy_attendance_strip %}
+            <div class="flex flex-col items-center">
+                <span class="text-[10px] text-slate-400 mb-1">{{ day.date.strftime('%a') }}</span>
+                {% if day.present %}
+                <div class="w-7 h-7 rounded bg-green-100 border border-green-300 flex items-center justify-center text-green-700 text-sm font-medium" title="{{ day.date }} — present">✓</div>
+                {% else %}
+                <div class="w-7 h-7 rounded bg-red-100 border border-red-300 flex items-center justify-center text-red-700 text-sm font-medium" title="{{ day.date }} — absent">✕</div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
     <div class="lg:col-span-2 space-y-6">
@@ -59,6 +101,7 @@
                                     <option value="{{ dt.value }}" {% if row.enrollment.discount_type == dt %}selected{% endif %}>{{ discount_type_labels[dt] }}</option>
                                     {% endfor %}
                                 </select>
+                                <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
                                 <input type="text" name="discount_value" placeholder="value"
                                        value="{{ row.enrollment.discount_value if row.enrollment.discount_value is not none else '' }}"
                                        class="w-20 rounded border border-slate-300 text-xs px-1.5 py-1">
@@ -68,6 +111,7 @@
                         <td class="px-4 py-3 font-medium text-slate-900">Rs {{ "%.2f"|format(row.computed_fee) }}</td>
                         <td class="px-4 py-3 text-right">
                             <form method="post" action="/students/{{ student.id }}/enrollments/{{ row.enrollment.id }}/end" class="inline" onsubmit="return confirm('End this enrollment?');">
+                                <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
                                 <button type="submit" class="text-xs text-red-600 hover:text-red-800">End</button>
                             </form>
                         </td>
@@ -111,11 +155,13 @@
                         <td class="px-4 py-3 text-right">
                             {% if cycle.status.value == "paid" %}
                             <form method="post" action="/fee-cycles/{{ cycle.id }}/mark-unpaid" class="inline">
+                                <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
                                 <input type="hidden" name="next" value="/students/{{ student.id }}">
                                 <button type="submit" class="text-xs text-slate-600 hover:text-slate-900 underline">Mark unpaid</button>
                             </form>
                             {% else %}
                             <form method="post" action="/fee-cycles/{{ cycle.id }}/mark-paid" class="inline">
+                                <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
                                 <input type="hidden" name="next" value="/students/{{ student.id }}">
                                 <button type="submit" class="text-xs text-green-700 hover:text-green-900 underline">Mark paid</button>
                             </form>
@@ -156,6 +202,7 @@
         <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-5">
             <h2 class="text-sm font-semibold text-slate-900 mb-4">Add enrollment</h2>
             <form method="post" action="/students/{{ student.id }}/enrollments" class="space-y-3">
+                <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
                 <div>
                     <label class="block text-xs font-medium text-slate-700 mb-1">Category</label>
                     <select name="category" class="w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm">

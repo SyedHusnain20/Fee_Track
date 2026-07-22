@@ -29,6 +29,7 @@
                 <span class="text-sm text-slate-300">{{ admin.name }}{% if admin.is_super_admin %} · Super Admin{% endif %}</span>
                 {% endif %}
                 <form method="post" action="/logout">
+                    <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
                     <button type="submit" class="text-sm text-slate-300 hover:text-white">Log out</button>
                 </form>
             </div>

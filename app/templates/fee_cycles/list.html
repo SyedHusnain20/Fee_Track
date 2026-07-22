@@ -18,6 +18,7 @@
     </form>
 
     <form method="post" action="/fee-cycles/generate" class="flex items-end gap-2">
+        <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
         <div>
             <label class="block text-xs font-medium text-slate-700 mb-1">Generate for period</label>
             <input type="month" name="period" value="{{ period }}"
@@ -79,10 +80,12 @@
                 <td class="px-4 py-3 text-right">
                     {% if cycle.status.value == "paid" %}
                     <form method="post" action="/fee-cycles/{{ cycle.id }}/mark-unpaid" class="inline">
+                        <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
                         <button type="submit" class="text-xs text-slate-600 hover:text-slate-900 underline">Mark unpaid</button>
                     </form>
                     {% else %}
                     <form method="post" action="/fee-cycles/{{ cycle.id }}/mark-paid" class="inline">
+                        <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
                         <button type="submit" class="text-xs text-green-700 hover:text-green-900 underline">Mark paid</button>
                     </form>
                     {% endif %}

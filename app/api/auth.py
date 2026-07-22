@@ -1,4 +1,4 @@
-"""Login / logout routes. Step 6.
+"""Login / logout routes. Step 6, rate-limiting added in Step 13.
 """
 from datetime import datetime
 
@@ -9,6 +9,7 @@ from sqlmodel import Session, select
 
 from app.core.config import settings
 from app.core.database import get_session
+from app.core.login_throttle import get_lockout_remaining, register_failure, register_success
 from app.core.security import (
     SESSION_COOKIE_NAME,
     generate_session_token,
@@ -22,10 +23,6 @@ from app.api.deps import get_current_admin
 router = APIRouter(tags=["auth"])
 templates = Jinja2Templates(directory="app/templates")
 
-# Derived from your existing ENVIRONMENT setting (development|production) —
-# secure cookies are skipped locally (plain HTTP) and enforced everywhere
-# else. This is why COOKIE_SECURE=False locally isn't something you need to
-# remember to flip by hand.
 COOKIE_SECURE = settings.ENVIRONMENT == "production"
 
 
@@ -41,21 +38,33 @@ async def login_submit(
     password: str = Form(...),
     session: Session = Depends(get_session),
 ):
+    lockout_remaining = get_lockout_remaining(email)
+    if lockout_remaining is not None:
+        minutes = max(1, int(lockout_remaining.total_seconds() // 60) + 1)
+        return templates.TemplateResponse(
+            "login.html",
+            {
+                "request": request,
+                "error": f"Too many failed attempts. Try again in {minutes} minute{'s' if minutes != 1 else ''}.",
+            },
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+        )
+
     admin = session.exec(
         select(AdminUser).where(AdminUser.email == email.strip().lower())
     ).first()
 
-    # Runs even when `admin` is None (verify_password falls back to a dummy
-    # hash) so failed logins take constant time regardless of whether the
-    # email exists — see security.py for why.
     password_ok = verify_password(password, admin.password_hash if admin else None)
 
     if not admin or not admin.is_active or not password_ok:
+        register_failure(email)
         return templates.TemplateResponse(
             "login.html",
             {"request": request, "error": "Invalid email or password."},
             status_code=status.HTTP_401_UNAUTHORIZED,
         )
+
+    register_success(email)
 
     token = generate_session_token()
     admin_session = AdminSession(
@@ -68,7 +77,6 @@ async def login_submit(
     session.add(admin_session)
     session.commit()
 
-    # TODO: change "/dashboard" to wherever Step 7's admin home route lands.
     redirect = RedirectResponse(url="/dashboard", status_code=status.HTTP_303_SEE_OTHER)
     redirect.set_cookie(
         key=SESSION_COOKIE_NAME,

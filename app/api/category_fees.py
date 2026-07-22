@@ -1,13 +1,8 @@
-"""Category default fee management — Section 3: admin capability to edit
-the 4 global category default fees. A change here ripples live to every
-enrolled student, since Enrollment never stores its own fee amount
-(Section 5's compute_enrollment_fee always looks the current default up
-live) — nothing else needs to be touched when a default changes.
-
-Not wired into the audit-log hook: Key Design Principle #7 (Section 13)
-scopes that requirement to Enrollment and FeeCycle specifically. Flagging
-it here in case you'd rather have full coverage — it's a small addition
-if so.
+"""Category default fee management — updated for class-level-banded fees.
+Admin edits each band's fee amount; band structure itself (which
+class-offset ranges exist per category) is fixed by the migration that
+created it -- adding/removing bands needs a new migration, this route
+only edits amounts.
 """
 from decimal import Decimal, InvalidOperation
 
@@ -33,10 +28,14 @@ CATEGORY_LABELS = {
 }
 
 
-def _ordered_defaults(session: Session) -> list[CategoryFeeDefault]:
-    rows = session.exec(select(CategoryFeeDefault)).all()
-    order = {c: i for i, c in enumerate(FeeCategory)}
-    return sorted(rows, key=lambda row: order[row.category])
+def _grouped_defaults(session: Session) -> list[dict]:
+    rows = session.exec(
+        select(CategoryFeeDefault).order_by(CategoryFeeDefault.category, CategoryFeeDefault.min_class_offset)
+    ).all()
+    groups: dict[FeeCategory, list[CategoryFeeDefault]] = {c: [] for c in FeeCategory}
+    for row in rows:
+        groups[row.category].append(row)
+    return [{"category": c, "label": CATEGORY_LABELS[c], "bands": groups[c]} for c in FeeCategory]
 
 
 @router.get("", response_class=HTMLResponse)
@@ -47,27 +46,21 @@ async def list_category_fees(
 ):
     return templates.TemplateResponse(
         "category_fees/list.html",
-        {
-            "request": request,
-            "admin": admin,
-            "defaults": _ordered_defaults(session),
-            "category_labels": CATEGORY_LABELS,
-            "error": None,
-        },
+        {"request": request, "admin": admin, "groups": _grouped_defaults(session), "error": None},
     )
 
 
-@router.post("/{category}")
+@router.post("/{band_id}")
 async def update_category_fee(
-    category: FeeCategory,
+    band_id: int,
     request: Request,
     default_amount: str = Form(...),
     session: Session = Depends(get_session),
     admin: AdminUser = Depends(get_current_admin),
 ):
-    row = session.get(CategoryFeeDefault, category)
+    row = session.get(CategoryFeeDefault, band_id)
     if not row:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Category not found.")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Fee band not found.")
 
     amount = None
     try:
@@ -79,10 +72,8 @@ async def update_category_fee(
         return templates.TemplateResponse(
             "category_fees/list.html",
             {
-                "request": request,
-                "admin": admin,
-                "defaults": _ordered_defaults(session),
-                "category_labels": CATEGORY_LABELS,
+                "request": request, "admin": admin,
+                "groups": _grouped_defaults(session),
                 "error": "Enter a valid, non-negative amount.",
             },
             status_code=status.HTTP_400_BAD_REQUEST,

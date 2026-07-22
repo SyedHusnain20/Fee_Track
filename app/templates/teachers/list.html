@@ -36,10 +36,12 @@
                     <a href="/teachers/{{ teacher.id }}/edit" class="text-slate-600 hover:text-slate-900">Edit</a>
                     {% if teacher.is_active %}
                     <form method="post" action="/teachers/{{ teacher.id }}/deactivate" class="inline" onsubmit="return confirm('Deactivate {{ teacher.name }}?');">
+                        <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
                         <button type="submit" class="text-red-600 hover:text-red-800">Deactivate</button>
                     </form>
                     {% else %}
                     <form method="post" action="/teachers/{{ teacher.id }}/reactivate" class="inline">
+                        <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
                         <button type="submit" class="text-green-700 hover:text-green-900">Reactivate</button>
                     </form>
                     {% endif %}

@@ -34,10 +34,16 @@ async def attendance_report(
     start_date: Optional[date] = None,
     end_date: Optional[date] = None,
     search: Optional[str] = None,
-    attendance_session: Optional[AttendanceSession] = Query(None, alias="session"),
+    session_param: Optional[str] = Query(None, alias="session"),
     session: Session = Depends(get_session),
     admin: AdminUser = Depends(get_current_admin),
 ):
+    attendance_session: Optional[AttendanceSession] = None
+    if session_param:
+        try:
+            attendance_session = AttendanceSession(session_param)
+        except ValueError:
+            attendance_session = None
     # No range given yet (first load) -> default to today only, rather than
     # dumping the whole table's history unfiltered.
     today = date.today()

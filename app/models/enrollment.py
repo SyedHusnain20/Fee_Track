@@ -2,7 +2,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import Column, ForeignKey, Index, text
+from sqlalchemy import Column, Index, text
 from sqlmodel import Field, Relationship, SQLModel
 
 from app.models._enum_utils import str_enum_type
@@ -30,13 +30,9 @@ class Enrollment(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     student_id: int = Field(foreign_key="student.id", index=True)
     category: FeeCategory = Field(
-        sa_column=Column(
-            str_enum_type(FeeCategory),
-            ForeignKey("category_fee_default.category"),
-            nullable=False,
-            index=True,
-        )
+        sa_column=Column(str_enum_type(FeeCategory), nullable=False, index=True)
     )
+    
     discount_type: DiscountType = Field(
         default=DiscountType.NONE,
         sa_column=Column(str_enum_type(DiscountType), nullable=False),
