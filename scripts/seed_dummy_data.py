@@ -26,10 +26,10 @@ Then, for each of the last 7 days:
 Usage:
     docker compose exec api python scripts/seed_dummy_data.py
 """
+
 import random
 import sys
 from datetime import time, timedelta
-from decimal import Decimal
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -61,14 +61,53 @@ STUDENTS_PER_GROUP_PER_CLASS = 10  # bump this later to scale toward ~1,000
 SCHOOL_MAX_ELIGIBLE_OFFSET = 12  # Class 10 -- matches the real fee-band ceiling
 
 FIRST_NAMES = [
-    "Ali", "Hamza", "Bilal", "Zain", "Ahmed", "Usman", "Hassan", "Hussain",
-    "Fahad", "Owais", "Saad", "Talha", "Faizan", "Danish", "Rayyan", "Omer",
-    "Shahzaib", "Waleed", "Arham", "Ibrahim", "Fatima", "Ayesha", "Zainab",
-    "Maryam", "Sana", "Amna", "Hira", "Sadia", "Rabia", "Iqra",
+    "Ali",
+    "Hamza",
+    "Bilal",
+    "Zain",
+    "Ahmed",
+    "Usman",
+    "Hassan",
+    "Hussain",
+    "Fahad",
+    "Owais",
+    "Saad",
+    "Talha",
+    "Faizan",
+    "Danish",
+    "Rayyan",
+    "Omer",
+    "Shahzaib",
+    "Waleed",
+    "Arham",
+    "Ibrahim",
+    "Fatima",
+    "Ayesha",
+    "Zainab",
+    "Maryam",
+    "Sana",
+    "Amna",
+    "Hira",
+    "Sadia",
+    "Rabia",
+    "Iqra",
 ]
 LAST_NAMES = [
-    "Khan", "Sheikh", "Raza", "Malik", "Siddiqui", "Ansari", "Qureshi",
-    "Baig", "Abbasi", "Chaudhry", "Farooq", "Iqbal", "Memon", "Shah", "Soomro",
+    "Khan",
+    "Sheikh",
+    "Raza",
+    "Malik",
+    "Siddiqui",
+    "Ansari",
+    "Qureshi",
+    "Baig",
+    "Abbasi",
+    "Chaudhry",
+    "Farooq",
+    "Iqbal",
+    "Memon",
+    "Shah",
+    "Soomro",
 ]
 
 
@@ -84,8 +123,12 @@ def _random_whatsapp() -> str:
     return f"+92 3{random.randint(0, 4)}{random.randint(0, 9)} {random.randint(1000000, 9999999)}"
 
 
-def _create_student(session: Session, class_level: ClassLevel, enrollment_year: int, admin_id: int) -> Student:
-    roll_number = generate_roll_number(session, class_level_id=class_level.id, enrollment_year=enrollment_year)
+def _create_student(
+    session: Session, class_level: ClassLevel, enrollment_year: int, admin_id: int
+) -> Student:
+    roll_number = generate_roll_number(
+        session, class_level_id=class_level.id, enrollment_year=enrollment_year
+    )
     student = Student(
         roll_number=roll_number,
         name=_random_name(),
@@ -101,14 +144,16 @@ def _create_student(session: Session, class_level: ClassLevel, enrollment_year: 
 
 
 def _enroll(session: Session, student: Student, category: FeeCategory, admin_id: int) -> None:
-    session.add(Enrollment(
-        student_id=student.id,
-        category=category,
-        discount_type=DiscountType.NONE,
-        discount_value=None,
-        status=EnrollmentStatus.ACTIVE,
-        created_by_id=admin_id,
-    ))
+    session.add(
+        Enrollment(
+            student_id=student.id,
+            category=category,
+            discount_type=DiscountType.NONE,
+            discount_value=None,
+            status=EnrollmentStatus.ACTIVE,
+            created_by_id=admin_id,
+        )
+    )
 
 
 def seed_students(session: Session, admin_id: int) -> tuple[list[Student], list[Student]]:
@@ -130,7 +175,9 @@ def seed_students(session: Session, admin_id: int) -> tuple[list[Student], list[
         for _ in range(STUDENTS_PER_GROUP_PER_CLASS):
             student = _create_student(session, class_level, current_year, admin_id)
             academy_categories = [FeeCategory.COACHING, FeeCategory.ENGLISH, FeeCategory.COMPUTER]
-            chosen = random.sample(academy_categories, k=random.choice([1, 1, 2]))  # mostly 1, sometimes 2
+            chosen = random.sample(
+                academy_categories, k=random.choice([1, 1, 2])
+            )  # mostly 1, sometimes 2
             for category in chosen:
                 _enroll(session, student, category, admin_id)
             academy_group_students.append(student)
@@ -171,6 +218,7 @@ def seed_fee_cycles(session: Session, admin_id: int, dummy_students: list[Studen
 
 def _compute_punctuality(arrival: time, start_time: time, grace_minutes: int) -> PunctualityStatus:
     from datetime import date, datetime
+
     anchor = date(2000, 1, 1)
     cutoff = (datetime.combine(anchor, start_time) + timedelta(minutes=grace_minutes)).time()
     return PunctualityStatus.ON_TIME if arrival <= cutoff else PunctualityStatus.LATE
@@ -192,9 +240,7 @@ def seed_attendance(
 
     for student in school_group_students:
         for day in last_7_days:
-            outcome = random.choices(
-                ["on_time", "late", "absent"], weights=[60, 20, 20], k=1
-            )[0]
+            outcome = random.choices(["on_time", "late", "absent"], weights=[60, 20, 20], k=1)[0]
             if outcome == "absent" or school_start is None:
                 continue
             if outcome == "on_time":
@@ -202,17 +248,20 @@ def seed_attendance(
             else:
                 minutes_offset = random.randint(school_grace + 1, school_grace + 45)
             from datetime import date, datetime
+
             anchor = date(2000, 1, 1)
             arrival_dt = datetime.combine(anchor, school_start) + timedelta(minutes=minutes_offset)
             arrival_time = max(arrival_dt.time(), time(0, 1))
             punctuality = _compute_punctuality(arrival_time, school_start, school_grace)
-            session.add(AttendanceRecord(
-                student_id=student.id,
-                scan_date=day,
-                arrival_time=arrival_time,
-                session=AttendanceSession.SCHOOL,
-                punctuality_status=punctuality,
-            ))
+            session.add(
+                AttendanceRecord(
+                    student_id=student.id,
+                    scan_date=day,
+                    arrival_time=arrival_time,
+                    session=AttendanceSession.SCHOOL,
+                    punctuality_status=punctuality,
+                )
+            )
             records_created += 1
 
     for student in academy_group_students:
@@ -222,16 +271,19 @@ def seed_attendance(
                 continue
             base = academy_start or time(16, 0)
             from datetime import date, datetime
+
             anchor = date(2000, 1, 1)
             arrival_dt = datetime.combine(anchor, base) + timedelta(minutes=random.randint(-15, 90))
             arrival_time = max(arrival_dt.time(), time(0, 1))
-            session.add(AttendanceRecord(
-                student_id=student.id,
-                scan_date=day,
-                arrival_time=arrival_time,
-                session=AttendanceSession.ACADEMY,
-                punctuality_status=None,
-            ))
+            session.add(
+                AttendanceRecord(
+                    student_id=student.id,
+                    scan_date=day,
+                    arrival_time=arrival_time,
+                    session=AttendanceSession.ACADEMY,
+                    punctuality_status=None,
+                )
+            )
             records_created += 1
 
     session.commit()
@@ -242,7 +294,9 @@ def main() -> None:
     with Session(engine) as session:
         admin = session.exec(select(AdminUser)).first()
         if admin is None:
-            print("No AdminUser found — create a super admin first (scripts/create_super_admin.py).")
+            print(
+                "No AdminUser found — create a super admin first (scripts/create_super_admin.py)."
+            )
             return
 
         total_school = 0
@@ -254,8 +308,10 @@ def main() -> None:
             total_academy += STUDENTS_PER_GROUP_PER_CLASS
         total = total_school + total_academy
 
-        print(f"This will create {total} dummy students ({total_school} School-group, "
-              f"{total_academy} Academy-group), plus fee cycles and 7 days of attendance for them.")
+        print(
+            f"This will create {total} dummy students ({total_school} School-group, "
+            f"{total_academy} Academy-group), plus fee cycles and 7 days of attendance for them."
+        )
         print("This is NOT idempotent -- running it again adds another full batch.")
         confirm = input("Type 'yes' to continue: ").strip().lower()
         if confirm != "yes":
@@ -263,7 +319,11 @@ def main() -> None:
             return
 
         school_group, academy_group = seed_students(session, admin.id)
-        print(f"Students created: {len(school_group)} School-group, {len(academy_group)} Academy-group.")
+        print(
+            "Students created: "
+            f"{len(school_group)} School-group, "
+            f"{len(academy_group)} Academy-group."
+        )
 
         all_dummy = school_group + academy_group
         seed_fee_cycles(session, admin.id, all_dummy)

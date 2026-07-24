@@ -7,6 +7,7 @@ in every environment.
 Usage:
     docker compose exec api python scripts/create_super_admin.py
 """
+
 import sys
 from getpass import getpass
 from pathlib import Path

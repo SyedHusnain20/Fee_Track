@@ -4,6 +4,7 @@ looked up live from the current CategoryFeeDefault band matching the
 student's class_offset, so a change to a band's fee ripples to every
 enrolled student in that band instantly.
 """
+
 from decimal import Decimal
 from typing import Optional
 
@@ -76,5 +77,7 @@ def compute_student_total_fee(session: Session, student_id: int) -> Decimal:
         default_amount = get_band_fee(session, enrollment.category, class_offset)
         if default_amount is None:
             continue
-        total += compute_enrollment_fee(default_amount, enrollment.discount_type, enrollment.discount_value)
+        total += compute_enrollment_fee(
+            default_amount, enrollment.discount_type, enrollment.discount_value
+        )
     return total

@@ -1,5 +1,5 @@
-"""Login / logout routes. Step 6, rate-limiting added in Step 13.
-"""
+"""Login / logout routes. Step 6, rate-limiting added in Step 13."""
+
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, Form, Request, status
@@ -7,6 +7,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, select
 
+from app.api.deps import get_current_admin
 from app.core.config import settings
 from app.core.database import get_session
 from app.core.login_throttle import get_lockout_remaining, register_failure, register_success
@@ -18,7 +19,6 @@ from app.core.security import (
 )
 from app.models.admin_session import AdminSession
 from app.models.admin_user import AdminUser
-from app.api.deps import get_current_admin
 
 router = APIRouter(tags=["auth"])
 templates = Jinja2Templates(directory="app/templates")
@@ -46,13 +46,12 @@ async def login_submit(
             {
                 "request": request,
                 "error": f"Too many failed attempts. Try again in {minutes} minute"
-                         f"{'s' if minutes != 1 else ''}.",},
+                f"{'s' if minutes != 1 else ''}.",
+            },
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
         )
 
-    admin = session.exec(
-        select(AdminUser).where(AdminUser.email == email.strip().lower())
-    ).first()
+    admin = session.exec(select(AdminUser).where(AdminUser.email == email.strip().lower())).first()
 
     password_ok = verify_password(password, admin.password_hash if admin else None)
 

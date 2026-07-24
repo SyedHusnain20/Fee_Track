@@ -13,6 +13,7 @@ nothing meaningful to bill.
 Per Key Design Principle #7, every row created here writes through the
 audit-log hook.
 """
+
 import re
 from decimal import Decimal
 
@@ -81,4 +82,8 @@ def generate_fee_cycles(session: Session, period: str, admin_id: int) -> dict:
         )
         created += 1
 
-    return {"created": created, "skipped_existing": skipped_existing, "skipped_zero_due": skipped_zero_due}
+    return {
+        "created": created,
+        "skipped_existing": skipped_existing,
+        "skipped_zero_due": skipped_zero_due,
+    }

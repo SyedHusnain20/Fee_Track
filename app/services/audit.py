@@ -5,6 +5,7 @@ to Enrollment or FeeCycle must write through this hook — not optional.
 Built now as shared infra so Phase 2/3's Enrollment and FeeCycle routes can
 just call write_audit_log(...) rather than each hand-rolling it.
 """
+
 from typing import Any, Optional
 
 from sqlmodel import Session

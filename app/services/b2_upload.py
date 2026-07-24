@@ -3,6 +3,7 @@ not boto3. Writes the workbook to a temp file rather than passing bytes
 directly, since upload_local_file is the most stable, well-documented
 b2sdk call across versions.
 """
+
 import os
 import tempfile
 from io import BytesIO

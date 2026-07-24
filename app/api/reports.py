@@ -10,6 +10,7 @@ runs in UTC. Using naive date.today() here caused real scans to silently
 disappear from the default "today" view during the nightly UTC/Karachi
 day-rollover window (~5 hours each night) — fixed as of this update.
 """
+
 from datetime import date
 from typing import Optional
 

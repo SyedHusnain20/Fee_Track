@@ -14,6 +14,7 @@ later (if that turns out to be the right shape for the kiosk) is a one-line
 change here, not a re-generation of every already-printed QR code, since
 the underlying token itself doesn't change either way.
 """
+
 import io
 
 import qrcode

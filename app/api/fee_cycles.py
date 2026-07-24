@@ -10,6 +10,7 @@ date.today() — see app/core/timezone.py. The server's system clock runs
 in UTC, so naive date.today() could default this page to the wrong month
 during the nightly UTC/Karachi day-rollover window.
 """
+
 from datetime import datetime
 from decimal import Decimal
 from typing import Optional
@@ -208,7 +209,9 @@ async def mark_paid(
         session.commit()
 
     fallback = f"/fee-cycles?period={cycle.period}"
-    return RedirectResponse(url=_safe_redirect(next, fallback), status_code=status.HTTP_303_SEE_OTHER)
+    return RedirectResponse(
+        url=_safe_redirect(next, fallback), status_code=status.HTTP_303_SEE_OTHER
+    )
 
 
 @router.post("/{cycle_id}/mark-unpaid")
@@ -242,4 +245,6 @@ async def mark_unpaid(
         session.commit()
 
     fallback = f"/fee-cycles?period={cycle.period}"
-    return RedirectResponse(url=_safe_redirect(next, fallback), status_code=status.HTTP_303_SEE_OTHER)
+    return RedirectResponse(
+        url=_safe_redirect(next, fallback), status_code=status.HTTP_303_SEE_OTHER
+    )

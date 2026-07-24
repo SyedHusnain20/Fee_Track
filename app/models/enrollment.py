@@ -32,7 +32,7 @@ class Enrollment(SQLModel, table=True):
     category: FeeCategory = Field(
         sa_column=Column(str_enum_type(FeeCategory), nullable=False, index=True)
     )
-    
+
     discount_type: DiscountType = Field(
         default=DiscountType.NONE,
         sa_column=Column(str_enum_type(DiscountType), nullable=False),

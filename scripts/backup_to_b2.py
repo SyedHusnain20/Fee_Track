@@ -63,8 +63,7 @@ def create_dump() -> Path:
 def upload_to_b2(dump_path: Path) -> None:
     if not (settings.B2_KEY_ID and settings.B2_APPLICATION_KEY and settings.B2_BUCKET_NAME):
         raise RuntimeError(
-            "B2 credentials are missing from .env — see README's "
-            "'Backblaze B2 setup' section."
+            "B2 credentials are missing from .env — see README's 'Backblaze B2 setup' section."
         )
 
     info = InMemoryAccountInfo()

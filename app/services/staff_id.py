@@ -15,6 +15,7 @@ Any existing teacher with a non-numeric staff_id (assigned manually
 before this change) is left untouched and simply ignored when computing
 the next number — this only affects new teachers created going forward.
 """
+
 from sqlmodel import Session, select
 
 from app.models.teacher import Teacher

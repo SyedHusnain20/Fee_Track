@@ -10,6 +10,7 @@ Registered against your real admin_user table and following your existing
 snake_case __tablename__ / naive-UTC-datetime conventions (see admin_user.py,
 audit_log.py).
 """
+
 from datetime import datetime
 from typing import Optional
 

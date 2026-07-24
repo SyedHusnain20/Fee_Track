@@ -5,6 +5,7 @@ itself stays super-admin-only, per Step 6 — this is unrelated to that).
 staff_id is auto-generated (0001, 0002, ...) as of this update — no longer
 a manual form field. See app.services.staff_id for the generation logic.
 """
+
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates

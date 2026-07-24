@@ -4,12 +4,12 @@ the preview summary shown before an admin confirms the archive run.
 Nothing here touches the database beyond reading — deletion only happens
 in app/api/archive.py, and only after a confirmed B2 upload.
 """
-from io import BytesIO
-from typing import Optional
 
+from io import BytesIO
+
+from openpyxl import Workbook
 from sqlalchemy import func
 from sqlmodel import Session, select
-from openpyxl import Workbook
 
 from app.models.attendance_record import AttendanceRecord
 from app.models.class_level import ClassLevel
@@ -37,7 +37,13 @@ def get_archive_summary(session: Session) -> dict:
     the date range covered, per-class breakdown, and teacher count."""
     total = session.exec(select(func.count()).select_from(AttendanceRecord)).one()
     if not total:
-        return {"total": 0, "start_date": None, "end_date": None, "class_counts": [], "teacher_count": 0}
+        return {
+            "total": 0,
+            "start_date": None,
+            "end_date": None,
+            "class_counts": [],
+            "teacher_count": 0,
+        }
 
     start_date, end_date = session.exec(
         select(func.min(AttendanceRecord.scan_date), func.max(AttendanceRecord.scan_date))
@@ -89,14 +95,16 @@ def build_workbook(session: Session) -> BytesIO:
             .order_by(AttendanceRecord.scan_date, AttendanceRecord.arrival_time)
         ).all()
         for record, student in rows:
-            ws.append([
-                student.roll_number,
-                student.name,
-                record.scan_date.isoformat(),
-                SESSION_LABELS[record.session],
-                record.arrival_time.strftime("%H:%M:%S"),
-                _status_label(record),
-            ])
+            ws.append(
+                [
+                    student.roll_number,
+                    student.name,
+                    record.scan_date.isoformat(),
+                    SESSION_LABELS[record.session],
+                    record.arrival_time.strftime("%H:%M:%S"),
+                    _status_label(record),
+                ]
+            )
 
     ws = wb.create_sheet(title="Teachers")
     ws.append(HEADER_TEACHER)
@@ -106,14 +114,16 @@ def build_workbook(session: Session) -> BytesIO:
         .order_by(AttendanceRecord.scan_date, AttendanceRecord.arrival_time)
     ).all()
     for record, teacher in teacher_rows:
-        ws.append([
-            teacher.staff_id,
-            teacher.name,
-            record.scan_date.isoformat(),
-            SESSION_LABELS[record.session],
-            record.arrival_time.strftime("%H:%M:%S"),
-            _status_label(record),
-        ])
+        ws.append(
+            [
+                teacher.staff_id,
+                teacher.name,
+                record.scan_date.isoformat(),
+                SESSION_LABELS[record.session],
+                record.arrival_time.strftime("%H:%M:%S"),
+                _status_label(record),
+            ]
+        )
 
     buffer = BytesIO()
     wb.save(buffer)

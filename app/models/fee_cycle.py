@@ -14,9 +14,7 @@ if TYPE_CHECKING:
 
 class FeeCycle(SQLModel, table=True):
     __tablename__ = "fee_cycle"
-    __table_args__ = (
-        UniqueConstraint("student_id", "period", name="uq_fee_cycle_student_period"),
-    )
+    __table_args__ = (UniqueConstraint("student_id", "period", name="uq_fee_cycle_student_period"),)
 
     id: Optional[int] = Field(default=None, primary_key=True)
     student_id: int = Field(foreign_key="student.id", index=True)

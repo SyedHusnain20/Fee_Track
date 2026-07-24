@@ -8,6 +8,7 @@ the audit-log hook — not optional. A status flip to inactive ("ending" an
 enrollment) is logged as UPDATE, not DELETE — the row is never hard-deleted,
 so UPDATE matches what actually happened to it.
 """
+
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
 from typing import Optional
@@ -72,7 +73,9 @@ def _error_response(
     student: Student,
     message: str,
 ) -> HTMLResponse:
-    context = build_student_detail_context(request, session, admin, student, enrollment_error=message)
+    context = build_student_detail_context(
+        request, session, admin, student, enrollment_error=message
+    )
     return templates.TemplateResponse(
         "students/detail.html", context, status_code=status.HTTP_400_BAD_REQUEST
     )
@@ -100,10 +103,13 @@ async def create_enrollment(
     class_offset = student.class_level.class_offset
     if get_band_fee(session, category, class_offset) is None:
         return _error_response(
-            request, session, admin, student,
+            request,
+            session,
+            admin,
+            student,
             f"{student.name}'s class level isn't eligible for {category.value} enrollment.",
         )
-        
+
     enrollment = Enrollment(
         student_id=student_id,
         category=category,
@@ -124,7 +130,10 @@ async def create_enrollment(
         session.rollback()
         label = category.value
         return _error_response(
-            request, session, admin, student,
+            request,
+            session,
+            admin,
+            student,
             f"{student.name} already has an active enrollment in {label}.",
         )
 

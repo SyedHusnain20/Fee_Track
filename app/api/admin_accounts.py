@@ -6,14 +6,15 @@ frontend step" model from Section 10 of the spec — a proper HTML back-office
 page for this can be layered on in Step 7 alongside the rest of the admin
 UI, reusing these same routes.
 """
+
 from fastapi import APIRouter, Depends, Form, HTTPException, status
 from sqlmodel import Session, select
 
+from app.api.deps import require_super_admin
 from app.core.database import get_session
 from app.core.security import hash_password
 from app.models.admin_session import AdminSession
 from app.models.admin_user import AdminUser
-from app.api.deps import require_super_admin
 
 router = APIRouter(prefix="/admin/accounts", tags=["admin-accounts"])
 

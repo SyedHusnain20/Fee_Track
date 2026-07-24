@@ -6,6 +6,7 @@ for this single-instance, single-VPS deployment, where Redis would be new
 operational weight for no real scaling benefit (see rate-limiting
 discussion earlier in this conversation).
 """
+
 import threading
 from datetime import datetime, timedelta
 from typing import Optional
@@ -14,7 +15,9 @@ MAX_ATTEMPTS = 5
 LOCKOUT_DURATION = timedelta(minutes=15)
 
 _lock = threading.Lock()
-_attempts: dict[str, dict] = {}  # normalized email -> {"count": int, "locked_until": datetime | None}
+_attempts: dict[
+    str, dict
+] = {}  # normalized email -> {"count": int, "locked_until": datetime | None}
 
 
 def _key(email: str) -> str:

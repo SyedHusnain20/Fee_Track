@@ -12,6 +12,7 @@ completely untouched by rollover — both continue as-is into the new year;
 if an Enrollment needs to end/renew, that's a separate admin action via
 students.py/enrollments.py, not something rollover does automatically.
 """
+
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Request
