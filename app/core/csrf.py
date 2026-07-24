@@ -24,7 +24,7 @@ from itsdangerous import BadSignature, URLSafeSerializer
 
 from app.core.config import settings
 
-from app.core.security import SESSION_COOKIE_NAME, generate_csrf_token, verify_csrf_token
+from app.core.security import SESSION_COOKIE_NAME
 
 _UNSAFE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 

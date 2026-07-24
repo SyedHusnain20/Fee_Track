@@ -4,8 +4,6 @@ from alembic import context
 from sqlalchemy import engine_from_config, pool
 from sqlmodel import SQLModel
 
-from alembic import context
-
 # Model modules must be imported so their tables register on
 # SQLModel.metadata before autogenerate runs.
 from app import models  # noqa: F401

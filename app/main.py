@@ -1,5 +1,3 @@
-from fastapi import FastAPI
-
 from app.core.config import settings
 from app.api.auth import router as auth_router
 from app.api.admin_accounts import router as admin_accounts_router
