@@ -45,8 +45,8 @@ async def login_submit(
             "login.html",
             {
                 "request": request,
-                "error": f"Too many failed attempts. Try again in {minutes} minute{'s' if minutes != 1 else ''}.",
-            },
+                "error": f"Too many failed attempts. Try again in {minutes} minute"
+                         f"{'s' if minutes != 1 else ''}.",},
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
         )
 
