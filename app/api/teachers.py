@@ -1,10 +1,14 @@
 """Teacher CRUD — create/edit/view/deactivate, per Section 3's admin
 capabilities. Any logged-in admin can manage teachers (account management
 itself stays super-admin-only, per Step 6 — this is unrelated to that).
+
+staff_id is auto-generated (0001, 0002, ...) as of this update — no longer
+a manual form field. See app.services.staff_id for the generation logic.
 """
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from app.api.deps import get_current_admin
@@ -12,6 +16,7 @@ from app.core.database import get_session
 from app.models.admin_user import AdminUser
 from app.models.teacher import Teacher
 from app.services.qr_token import generate_qr_token
+from app.services.staff_id import generate_staff_id
 
 router = APIRouter(prefix="/teachers", tags=["teachers"])
 templates = Jinja2Templates(directory="app/templates")
@@ -42,24 +47,11 @@ async def new_teacher_form(
 @router.post("")
 async def create_teacher(
     request: Request,
-    staff_id: str = Form(...),
     name: str = Form(...),
     session: Session = Depends(get_session),
     admin: AdminUser = Depends(get_current_admin),
 ):
-    staff_id = staff_id.strip()
-    existing = session.exec(select(Teacher).where(Teacher.staff_id == staff_id)).first()
-    if existing:
-        return templates.TemplateResponse(
-            "teachers/form.html",
-            {
-                "request": request,
-                "admin": admin,
-                "teacher": None,
-                "error": f"Staff ID '{staff_id}' is already in use.",
-            },
-            status_code=status.HTTP_409_CONFLICT,
-        )
+    staff_id = generate_staff_id(session)
 
     teacher = Teacher(
         staff_id=staff_id,
@@ -68,7 +60,24 @@ async def create_teacher(
         is_active=True,
     )
     session.add(teacher)
-    session.commit()
+    try:
+        session.commit()
+    except IntegrityError:
+        # Extremely rare: two teachers created in the same instant both
+        # computed the same next number before either committed. Fails
+        # loudly rather than silently — just ask the admin to retry, which
+        # will compute a fresh MAX() and succeed.
+        session.rollback()
+        return templates.TemplateResponse(
+            "teachers/form.html",
+            {
+                "request": request,
+                "admin": admin,
+                "teacher": None,
+                "error": "Staff ID generation collided with another request — please try again.",
+            },
+            status_code=status.HTTP_409_CONFLICT,
+        )
     return RedirectResponse(url="/teachers", status_code=status.HTTP_303_SEE_OTHER)
 
 

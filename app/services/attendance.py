@@ -17,22 +17,15 @@ there's no search, no listing, nothing beyond an echo of the scan just made.
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 from typing import Optional, Union
-from zoneinfo import ZoneInfo
 
 from sqlmodel import Session, select
 
+from app.core.timezone import SCHOOL_TIMEZONE
 from app.models.attendance_record import AttendanceRecord
 from app.models.enums import AttendanceSession, PunctualityStatus
 from app.models.student import Student
 from app.models.teacher import Teacher
 from app.services.attendance_settings import get_session_grace_minutes, get_session_start_time
-
-# Hardcoded rather than trusting the server process's local time zone —
-# python:3.12-slim doesn't ship IANA tzdata by default, so datetime.now()
-# without an explicit zone risks silently running in UTC (Pakistan is
-# UTC+5), which would make every scan's on-time/late calculation wrong by
-# 5 hours. See requirements.txt note re: the `tzdata` package.
-SCHOOL_TIMEZONE = ZoneInfo("Asia/Karachi")
 
 
 @dataclass

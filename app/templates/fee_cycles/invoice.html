@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Invoice {{ invoice_number }} — Raabta</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @media print {
+            .no-print { display: none; }
+            body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        }
+    </style>
+</head>
+<body class="bg-white text-slate-900 p-10 max-w-2xl mx-auto">
+
+    <div class="no-print mb-6 flex justify-end">
+        <button onclick="window.print()" class="rounded-md bg-slate-800 text-white text-sm font-medium px-4 py-2 hover:bg-slate-700">
+            Print
+        </button>
+    </div>
+
+    <div class="border border-slate-300 rounded-xl p-8">
+        <div class="flex items-center justify-between mb-8 pb-6 border-b border-slate-200">
+            <div>
+                <h1 class="text-2xl font-bold text-slate-900">RAABTA</h1>
+                <p class="text-sm text-slate-500 mt-1">Fee Payment Invoice</p>
+            </div>
+            <div class="text-right text-sm text-slate-500">
+                <div>Invoice #: <span class="font-mono text-slate-900">{{ invoice_number }}</span></div>
+                <div>Paid on: <span class="text-slate-900">{{ cycle.paid_date.strftime('%d %B %Y') if cycle.paid_date else '—' }}</span></div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-6 mb-8">
+            <div>
+                <p class="text-xs text-slate-400 uppercase tracking-wide mb-1">Student</p>
+                <p class="text-slate-900 font-medium">{{ student.name }}</p>
+                <p class="text-sm text-slate-500">Roll # {{ student.roll_number }}</p>
+                <p class="text-sm text-slate-500">{{ student.class_level.name }}</p>
+            </div>
+            <div>
+                <p class="text-xs text-slate-400 uppercase tracking-wide mb-1">Billing period</p>
+                <p class="text-slate-900 font-medium">{{ cycle.period }}</p>
+            </div>
+        </div>
+
+        <table class="w-full text-sm mb-8">
+            <thead class="border-b border-slate-300 text-left text-slate-500">
+                <tr>
+                    <th class="py-2 font-medium">Description</th>
+                    <th class="py-2 font-medium text-right">Amount</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr class="border-b border-slate-100">
+                    <td class="py-3 text-slate-700">Fee for {{ cycle.period }}</td>
+                    <td class="py-3 text-right text-slate-900">Rs {{ "%.2f"|format(cycle.total_due) }}</td>
+                </tr>
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td class="py-3 font-semibold text-slate-900">Total paid</td>
+                    <td class="py-3 text-right font-semibold text-slate-900">Rs {{ "%.2f"|format(cycle.total_due) }}</td>
+                </tr>
+            </tfoot>
+        </table>
+
+        <p class="text-xs text-slate-400 text-center pt-6 border-t border-slate-200">
+            This is a computer-generated invoice and does not require a signature.
+        </p>
+    </div>
+
+</body>
+</html>

@@ -19,10 +19,8 @@
         Staff ID <span class="font-mono text-slate-700">{{ teacher.staff_id }}</span> — can't be changed here.
     </div>
     {% else %}
-    <div>
-        <label for="staff_id" class="block text-sm font-medium text-slate-700 mb-1">Staff ID</label>
-        <input type="text" name="staff_id" id="staff_id" required maxlength="20"
-               class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-800 focus:border-slate-800">
+    <div class="text-sm text-slate-500">
+        Staff ID will be assigned automatically (0001, 0002, ...) once saved.
     </div>
     {% endif %}
 

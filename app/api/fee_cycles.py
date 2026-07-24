@@ -4,8 +4,13 @@ billing model.
 
 Per Key Design Principle #7, every FeeCycle change here — generation,
 marking paid, marking unpaid — writes through the audit-log hook.
+
+_current_period() uses school_today() (Asia/Karachi-aware), not naive
+date.today() — see app/core/timezone.py. The server's system clock runs
+in UTC, so naive date.today() could default this page to the wrong month
+during the nightly UTC/Karachi day-rollover window.
 """
-from datetime import date, datetime
+from datetime import datetime
 from decimal import Decimal
 from typing import Optional
 from urllib.parse import quote
@@ -17,9 +22,11 @@ from sqlmodel import Session, select
 
 from app.api.deps import get_current_admin
 from app.core.database import get_session
+from app.core.timezone import school_today
 from app.models.admin_user import AdminUser
 from app.models.enums import AuditAction, FeeCycleStatus
 from app.models.fee_cycle import FeeCycle
+from app.models.student import Student
 from app.services.audit import write_audit_log
 from app.services.fee_cycle_generation import generate_fee_cycles
 
@@ -28,7 +35,7 @@ templates = Jinja2Templates(directory="app/templates")
 
 
 def _current_period() -> str:
-    today = date.today()
+    today = school_today()
     return f"{today.year:04d}-{today.month:02d}"
 
 
@@ -101,6 +108,40 @@ async def list_fee_cycles(
     )
 
 
+@router.get("/{cycle_id}/invoice", response_class=HTMLResponse)
+async def view_invoice(
+    cycle_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+    admin: AdminUser = Depends(get_current_admin),
+):
+    cycle = session.get(FeeCycle, cycle_id)
+    if not cycle:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Fee cycle not found.")
+    if cycle.status != FeeCycleStatus.PAID:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="An invoice is only available for a fee cycle that's marked paid.",
+        )
+
+    student = session.get(Student, cycle.student_id)
+    if not student:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Student not found.")
+
+    return templates.TemplateResponse(
+        "fee_cycles/invoice.html",
+        {
+            "request": request,
+            "cycle": cycle,
+            "student": student,
+            # Derived from the cycle's own id -- unique for free, no new
+            # counter/table needed, matches this table's existing
+            # snapshot-not-recompute philosophy (Section 5).
+            "invoice_number": f"INV-{cycle.id:06d}",
+        },
+    )
+
+
 @router.post("/generate")
 async def generate(
     request: Request,
@@ -150,7 +191,7 @@ async def mark_paid(
     if cycle.status != FeeCycleStatus.PAID:
         before = _snapshot(cycle)
         cycle.status = FeeCycleStatus.PAID
-        cycle.paid_date = date.today()
+        cycle.paid_date = school_today()
         cycle.updated_by_id = admin.id
         cycle.updated_at = datetime.utcnow()
         session.add(cycle)

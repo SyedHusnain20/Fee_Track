@@ -2,6 +2,13 @@
 range + session (School/Academy) + name/ID search, students and teachers
 shown in separate sections. Read-only — no export yet, per current scope;
 export buttons can be added later without touching this query logic.
+
+Default date range uses school_today() (Asia/Karachi-aware), NOT naive
+date.today() — the kiosk stamps scan_date using the same school-local
+timezone (see app/services/attendance.py), and the server's system clock
+runs in UTC. Using naive date.today() here caused real scans to silently
+disappear from the default "today" view during the nightly UTC/Karachi
+day-rollover window (~5 hours each night) — fixed as of this update.
 """
 from datetime import date
 from typing import Optional
@@ -13,6 +20,7 @@ from sqlmodel import Session, or_, select
 
 from app.api.deps import get_current_admin
 from app.core.database import get_session
+from app.core.timezone import school_today
 from app.models.admin_user import AdminUser
 from app.models.attendance_record import AttendanceRecord
 from app.models.enums import AttendanceSession
@@ -44,9 +52,11 @@ async def attendance_report(
             attendance_session = AttendanceSession(session_param)
         except ValueError:
             attendance_session = None
+
     # No range given yet (first load) -> default to today only, rather than
-    # dumping the whole table's history unfiltered.
-    today = date.today()
+    # dumping the whole table's history unfiltered. school_today(), not
+    # date.today() -- see module docstring for why this matters.
+    today = school_today()
     effective_start = start_date or today
     effective_end = end_date or today
     if effective_start > effective_end:

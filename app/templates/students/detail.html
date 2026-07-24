@@ -154,6 +154,7 @@
                         <td class="px-4 py-3 text-slate-500">{{ cycle.paid_date.strftime('%Y-%m-%d') if cycle.paid_date else '—' }}</td>
                         <td class="px-4 py-3 text-right">
                             {% if cycle.status.value == "paid" %}
+                            <a href="/fee-cycles/{{ cycle.id }}/invoice" target="_blank" class="text-xs text-slate-600 hover:text-slate-900 underline mr-3">Invoice</a>
                             <form method="post" action="/fee-cycles/{{ cycle.id }}/mark-unpaid" class="inline">
                                 <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
                                 <input type="hidden" name="next" value="/students/{{ student.id }}">

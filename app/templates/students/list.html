@@ -9,6 +9,35 @@
     </a>
 </div>
 
+<form method="get" action="/students" class="bg-white border border-slate-200 rounded-xl p-4 mb-6 flex flex-wrap items-end gap-4">
+    <div class="flex-1 min-w-[180px]">
+        <label class="block text-xs text-slate-500 mb-1">Search</label>
+        <input type="text" name="search" value="{{ search }}" placeholder="Roll number or name..."
+               class="w-full rounded border border-slate-300 text-sm px-2 py-1.5">
+    </div>
+    <div>
+        <label class="block text-xs text-slate-500 mb-1">Group</label>
+        <select name="group" class="rounded border border-slate-300 text-sm px-2 py-1.5">
+            <option value="" {% if not group %}selected{% endif %}>All</option>
+            <option value="school" {% if group == "school" %}selected{% endif %}>School</option>
+            <option value="academy" {% if group == "academy" %}selected{% endif %}>Academy</option>
+        </select>
+    </div>
+    <div>
+        <label class="block text-xs text-slate-500 mb-1">Class</label>
+        <select name="class_level_id" class="rounded border border-slate-300 text-sm px-2 py-1.5">
+            <option value="">All classes</option>
+            {% for cl in class_levels %}
+            <option value="{{ cl.id }}" {% if class_level_id == cl.id %}selected{% endif %}>{{ cl.name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <button type="submit" class="rounded-md bg-slate-800 text-white text-sm font-medium px-4 py-1.5 hover:bg-slate-700">
+        Filter
+    </button>
+    <a href="/students" class="text-sm text-slate-500 hover:text-slate-800 underline">Reset</a>
+</form>
+
 <div class="bg-white border border-slate-200 rounded-xl overflow-hidden">
     <table class="w-full text-sm">
         <thead class="bg-slate-50 border-b border-slate-200 text-left text-slate-500">
@@ -18,23 +47,31 @@
                 <th class="px-4 py-3 font-medium">Father's Name</th>
                 <th class="px-4 py-3 font-medium">Class</th>
                 <th class="px-4 py-3 font-medium">WhatsApp</th>
-                <th class="px-4 py-3 font-medium">Status</th>
+                <th class="px-4 py-3 font-medium">Total Fee</th>
+                <th class="px-4 py-3 font-medium">Fee Status</th>
                 <th class="px-4 py-3 font-medium text-right">Actions</th>
             </tr>
         </thead>
         <tbody class="divide-y divide-slate-100">
-            {% for student in students %}
-            <tr class="{% if not student.is_active %}opacity-50{% endif %}">
+            {% for row in rows %}
+            {% set student = row.student %}
+            <tr class="{% if not student.is_active %}opacity-50{% elif row.is_overdue %}bg-red-50{% endif %}">
                 <td class="px-4 py-3 font-mono text-slate-700">{{ student.roll_number }}</td>
                 <td class="px-4 py-3 text-slate-900">{{ student.name }}</td>
                 <td class="px-4 py-3 text-slate-500">{{ student.father_name }}</td>
                 <td class="px-4 py-3 text-slate-500">{{ student.class_level.name }}</td>
                 <td class="px-4 py-3 text-slate-500">{{ student.parent_whatsapp }}</td>
+                <td class="px-4 py-3 {% if row.is_overdue %}text-red-700 font-medium{% else %}text-slate-700{% endif %}">
+                    Rs {{ "%.2f"|format(row.total_fee) }}
+                    {% if row.is_overdue %}
+                    <span class="text-xs text-red-600 ml-1" title="Unpaid for the current period, past the 10th">⚠</span>
+                    {% endif %}
+                </td>
                 <td class="px-4 py-3">
-                    {% if student.is_active %}
-                    <span class="text-xs font-medium text-green-700 bg-green-50 px-2 py-1 rounded">Active</span>
+                    {% if row.fee_status == "Paid" %}
+                    <span class="text-xs font-medium text-green-700 bg-green-50 px-2 py-1 rounded">Paid</span>
                     {% else %}
-                    <span class="text-xs font-medium text-slate-500 bg-slate-100 px-2 py-1 rounded">Inactive</span>
+                    <span class="text-xs font-medium text-red-700 bg-red-50 px-2 py-1 rounded">Unpaid</span>
                     {% endif %}
                 </td>
                 <td class="px-4 py-3 text-right space-x-3">
@@ -55,11 +92,30 @@
             </tr>
             {% else %}
             <tr>
-                <td colspan="7" class="px-4 py-8 text-center text-slate-400">No students yet.</td>
+                <td colspan="8" class="px-4 py-8 text-center text-slate-400">No students match this filter.</td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
 </div>
+
+{% if total_pages > 1 %}
+<div class="flex items-center justify-between mt-4">
+    <p class="text-sm text-slate-500">
+        Page {{ page }} of {{ total_pages }} — {{ total_count }} student{{ "s" if total_count != 1 else "" }} total
+    </p>
+    <div class="flex items-center gap-2">
+        {% set class_qs = class_level_id|string if class_level_id else "" %}
+        {% if page > 1 %}
+        <a href="/students?page={{ page - 1 }}&search={{ search|urlencode }}&group={{ group|urlencode }}&class_level_id={{ class_qs }}" class="rounded-md border border-slate-300 text-sm px-3 py-1.5 hover:bg-slate-50">Previous</a>
+        {% endif %}
+        {% if page < total_pages %}
+        <a href="/students?page={{ page + 1 }}&search={{ search|urlencode }}&group={{ group|urlencode }}&class_level_id={{ class_qs }}" class="rounded-md border border-slate-300 text-sm px-3 py-1.5 hover:bg-slate-50">Next</a>
+        {% endif %}
+    </div>
+</div>
+{% elif total_count %}
+<p class="text-sm text-slate-500 mt-4">{{ total_count }} student{{ "s" if total_count != 1 else "" }} total</p>
+{% endif %}
 
 {% endblock %}
