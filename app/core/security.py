@@ -3,6 +3,7 @@ authentication.
 
 Step 6 (hashing/sessions), Step 13 (CSRF).
 """
+
 import secrets
 from datetime import datetime, timedelta
 

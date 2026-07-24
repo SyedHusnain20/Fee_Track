@@ -3,6 +3,7 @@ redesign. Unauthenticated by design: "the attendance kiosk is not a
 role... physically secured at the school gate." No get_current_admin
 anywhere in this file — that's intentional, not an oversight.
 """
+
 from fastapi import APIRouter, Depends, Form, Request, status
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
@@ -43,16 +44,22 @@ async def scan(
     session: Session = Depends(get_session),
 ):
     result = process_scan(session, token=token.strip(), attendance_session=attendance_session)
-    status_code = status.HTTP_200_OK if result.ok else _STATUS_BY_KIND.get(
-        result.kind, status.HTTP_400_BAD_REQUEST
+    status_code = (
+        status.HTTP_200_OK
+        if result.ok
+        else _STATUS_BY_KIND.get(result.kind, status.HTTP_400_BAD_REQUEST)
     )
     return JSONResponse(
         {
             "ok": result.ok,
             "message": result.message,
             "person_name": result.person_name,
-            "punctuality_status": result.punctuality_status.value if result.punctuality_status else None,
-            "arrival_time": result.arrival_time.strftime("%H:%M:%S") if result.arrival_time else None,
+            "punctuality_status": result.punctuality_status.value
+            if result.punctuality_status
+            else None,
+            "arrival_time": result.arrival_time.strftime("%H:%M:%S")
+            if result.arrival_time
+            else None,
         },
         status_code=status_code,
     )

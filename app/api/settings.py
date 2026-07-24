@@ -4,6 +4,7 @@ redesign. School gets a start time + grace period (drives late
 calculation); Academy gets a start time only, for reference/reporting —
 there's no late judgment for Academy scans at all.
 """
+
 from datetime import time
 from typing import Optional
 
@@ -37,7 +38,9 @@ def _rows(session: Session) -> list[dict]:
             "session": s,
             "label": SESSION_LABELS[s],
             "start_time": get_session_start_time(session, s),
-            "grace_minutes": get_session_grace_minutes(session, s) if s == AttendanceSession.SCHOOL else None,
+            "grace_minutes": get_session_grace_minutes(session, s)
+            if s == AttendanceSession.SCHOOL
+            else None,
             "has_grace": s == AttendanceSession.SCHOOL,
         }
         for s in AttendanceSession
@@ -72,7 +75,9 @@ async def update_setting(
         return templates.TemplateResponse(
             "settings/list.html",
             {
-                "request": request, "admin": admin, "rows": _rows(session),
+                "request": request,
+                "admin": admin,
+                "rows": _rows(session),
                 "error": "Enter start time as HH:MM.",
             },
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -83,7 +88,9 @@ async def update_setting(
             return templates.TemplateResponse(
                 "settings/list.html",
                 {
-                    "request": request, "admin": admin, "rows": _rows(session),
+                    "request": request,
+                    "admin": admin,
+                    "rows": _rows(session),
                     "error": "Grace period can't be negative.",
                 },
                 status_code=status.HTTP_400_BAD_REQUEST,

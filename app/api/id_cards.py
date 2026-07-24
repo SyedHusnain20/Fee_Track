@@ -10,6 +10,7 @@ admin pages, and same-site image requests carry the session cookie fine
 under SameSite=Lax, so this doesn't break anything, it just keeps the
 tokens from being fetchable by an unauthenticated request.
 """
+
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates

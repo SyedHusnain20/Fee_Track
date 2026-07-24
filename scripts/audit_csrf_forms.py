@@ -6,6 +6,7 @@ intentionally exempt from CSRF (see app/core/csrf.py).
 Usage:
     docker compose exec api python scripts/audit_csrf_forms.py
 """
+
 import re
 from pathlib import Path
 
@@ -47,7 +48,7 @@ def main() -> None:
 
     print(f"MISSING csrf_token in {len(problems)} form(s):\n")
     for filepath, form_index, action in problems:
-        print(f"  {filepath}  (form #{form_index}, action=\"{action}\")")
+        print(f'  {filepath}  (form #{form_index}, action="{action}")')
 
 
 if __name__ == "__main__":

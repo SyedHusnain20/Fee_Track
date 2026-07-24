@@ -15,6 +15,7 @@ class CategoryFeeDefault(SQLModel, table=True):
     (min_class_offset=0, max_class_offset=14). No longer an FK target for
     Enrollment.category -- see the migration docstring for why.
     """
+
     __tablename__ = "category_fee_default"
     __table_args__ = (
         CheckConstraint("min_class_offset <= max_class_offset", name="ck_category_fee_band_range"),
@@ -22,7 +23,9 @@ class CategoryFeeDefault(SQLModel, table=True):
     )
 
     id: Optional[int] = Field(default=None, primary_key=True)
-    category: FeeCategory = Field(sa_column=Column(str_enum_type(FeeCategory), nullable=False, index=True))
+    category: FeeCategory = Field(
+        sa_column=Column(str_enum_type(FeeCategory), nullable=False, index=True)
+    )
     band_name: str = Field(max_length=50)
     min_class_offset: int = Field(ge=0, le=14)
     max_class_offset: int = Field(ge=0, le=14)

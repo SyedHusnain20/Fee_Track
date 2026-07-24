@@ -7,6 +7,7 @@ reporting purposes — there's no late calculation for Academy at all, so a
 grace period is meaningless for it and no academy_grace_minutes key
 exists).
 """
+
 from datetime import time
 from typing import Optional
 
@@ -26,7 +27,9 @@ def _grace_minutes_key(attendance_session: AttendanceSession) -> str:
     return f"{attendance_session.value}_grace_minutes"
 
 
-def get_session_start_time(session: Session, attendance_session: AttendanceSession) -> Optional[time]:
+def get_session_start_time(
+    session: Session, attendance_session: AttendanceSession
+) -> Optional[time]:
     row = session.get(SystemSetting, _start_time_key(attendance_session))
     if not row:
         return None

@@ -1,20 +1,20 @@
-from app.core.config import settings
-from app.api.auth import router as auth_router
-from app.api.admin_accounts import router as admin_accounts_router
-from app.api.dashboard import router as dashboard_router
-from app.api.students import router as students_router
-from app.api.teachers import router as teachers_router
-from app.api.enrollments import router as enrollments_router
-from app.api.category_fees import router as category_fees_router
+from fastapi import Depends, FastAPI
 
+from app.api.admin_accounts import router as admin_accounts_router
+from app.api.archive import router as archive_router
+from app.api.auth import router as auth_router
+from app.api.category_fees import router as category_fees_router
+from app.api.dashboard import router as dashboard_router
+from app.api.enrollments import router as enrollments_router
 from app.api.fee_cycles import router as fee_cycles_router
 from app.api.id_cards import router as id_cards_router
 from app.api.kiosk import router as kiosk_router
-from app.api.settings import router as settings_router
 from app.api.reports import router as reports_router
 from app.api.rollover import router as rollover_router
-from app.api.archive import router as archive_router
-from fastapi import FastAPI, Depends
+from app.api.settings import router as settings_router
+from app.api.students import router as students_router
+from app.api.teachers import router as teachers_router
+from app.core.config import settings
 from app.core.csrf import csrf_protect
 
 app = FastAPI(title=settings.APP_NAME, dependencies=[Depends(csrf_protect)])

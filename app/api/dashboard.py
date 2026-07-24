@@ -7,6 +7,7 @@ correctly count a student enrolled in both groups toward both counts,
 without double-counting rows, since these are COUNT queries against
 Student with an IN-subquery filter, not a join.
 """
+
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates

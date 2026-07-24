@@ -65,6 +65,7 @@ docker compose up --build
 ```python
 from app.api.kiosk import router as kiosk_router
 from app.api.settings import router as settings_router
+
 ...
 app.include_router(kiosk_router)
 app.include_router(settings_router)

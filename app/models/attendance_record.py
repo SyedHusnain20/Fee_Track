@@ -28,13 +28,17 @@ class AttendanceRecord(SQLModel, table=True):
         # NULL for those) from colliding.
         Index(
             "ix_attendance_one_scan_per_student_session_day",
-            "student_id", "scan_date", "session",
+            "student_id",
+            "scan_date",
+            "session",
             unique=True,
             postgresql_where=text("student_id IS NOT NULL"),
         ),
         Index(
             "ix_attendance_one_scan_per_teacher_session_day",
-            "teacher_id", "scan_date", "session",
+            "teacher_id",
+            "scan_date",
+            "session",
             unique=True,
             postgresql_where=text("teacher_id IS NOT NULL"),
         ),

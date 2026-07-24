@@ -18,6 +18,7 @@ left over from before the redesign — that cleanup belongs in the migration.
 Usage:
     docker compose exec api python scripts/seed_reference_data.py
 """
+
 import sys
 from decimal import Decimal
 from pathlib import Path
@@ -97,7 +98,9 @@ def seed_attendance_settings(session: Session) -> None:
         session.add(SystemSetting(key="academic_year_reset_month", value=ACADEMIC_YEAR_RESET_MONTH))
         added += 1
 
-    print(f"SystemSetting: added {added} attendance/academic-year keys (skipped any already present)")
+    print(
+        f"SystemSetting: added {added} attendance/academic-year keys (skipped any already present)"
+    )
 
 
 def main() -> None:

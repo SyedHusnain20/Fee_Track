@@ -19,11 +19,11 @@ does NOT break the route handler's own Form(...) parameter parsing —
 dependencies and the route handler share the same Request instance, and
 Starlette caches the parsed form on it.
 """
+
 from fastapi import HTTPException, Request, status
 from itsdangerous import BadSignature, URLSafeSerializer
 
 from app.core.config import settings
-
 from app.core.security import SESSION_COOKIE_NAME
 
 _UNSAFE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
@@ -45,8 +45,12 @@ async def csrf_protect(request: Request) -> None:
     if not submitted or not verify_csrf_token(str(submitted), session_token):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Your session token is invalid or expired. Please refresh the page and try again.",
-        )
+            detail=(
+                "Your session token is invalid or expired. "
+                "Please refresh the page and try again."
+    ),
+)
+
 
 _csrf_serializer = URLSafeSerializer(settings.SECRET_KEY, salt="csrf-token")
 

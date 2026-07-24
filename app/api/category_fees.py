@@ -4,6 +4,7 @@ class-offset ranges exist per category) is fixed by the migration that
 created it -- adding/removing bands needs a new migration, this route
 only edits amounts.
 """
+
 from decimal import Decimal, InvalidOperation
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, status
@@ -30,7 +31,9 @@ CATEGORY_LABELS = {
 
 def _grouped_defaults(session: Session) -> list[dict]:
     rows = session.exec(
-        select(CategoryFeeDefault).order_by(CategoryFeeDefault.category, CategoryFeeDefault.min_class_offset)
+        select(CategoryFeeDefault).order_by(
+            CategoryFeeDefault.category, CategoryFeeDefault.min_class_offset
+        )
     ).all()
     groups: dict[FeeCategory, list[CategoryFeeDefault]] = {c: [] for c in FeeCategory}
     for row in rows:
@@ -72,7 +75,8 @@ async def update_category_fee(
         return templates.TemplateResponse(
             "category_fees/list.html",
             {
-                "request": request, "admin": admin,
+                "request": request,
+                "admin": admin,
                 "groups": _grouped_defaults(session),
                 "error": "Enter a valid, non-negative amount.",
             },

@@ -6,6 +6,7 @@ inserted without one. The QR *image* rendering (the `qrcode` library,
 print-friendly display) genuinely stays Step 8; only this numeric algorithm
 needed to move earlier.
 """
+
 from sqlmodel import Session, select
 
 from app.models.class_level import ClassLevel

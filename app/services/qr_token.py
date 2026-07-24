@@ -6,6 +6,7 @@ a random unguessable token means a scan can't be spoofed by trying nearby
 roll numbers. Turning this token into an actual scannable QR *image* (via
 the `qrcode` library) stays Step 8's job.
 """
+
 import secrets
 
 

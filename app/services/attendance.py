@@ -14,6 +14,7 @@ person (mixed-up QR codes, a shared/borrowed ID), which would defeat
 attendance tracking's purpose entirely. That's not general read access —
 there's no search, no listing, nothing beyond an echo of the scan just made.
 """
+
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 from typing import Optional, Union
@@ -32,7 +33,9 @@ from app.services.attendance_settings import get_session_grace_minutes, get_sess
 class ScanResult:
     ok: bool
     message: str
-    kind: Optional[str] = None  # "unrecognized" | "inactive" | "duplicate" | "unconfigured", on failure
+    kind: Optional[str] = (
+        None  # "unrecognized" | "inactive" | "duplicate" | "unconfigured", on failure
+    )
     person_name: Optional[str] = None
     punctuality_status: Optional[PunctualityStatus] = None
     arrival_time: Optional[time] = None
@@ -94,7 +97,10 @@ def process_scan(session: Session, token: str, attendance_session: AttendanceSes
             return ScanResult(
                 ok=False,
                 kind="unconfigured",
-                message="No start time configured for School yet — set it on the Settings page first.",
+                message=( 
+                    "No start time configured for School yet — "
+                    "set it on the Settings page first."
+                ),            
             )
         grace_minutes = get_session_grace_minutes(session, attendance_session)
         punctuality_status = _compute_punctuality(arrival_time, start_time, grace_minutes)

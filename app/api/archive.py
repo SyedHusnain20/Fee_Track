@@ -10,6 +10,7 @@ Distinct from app/api/rollover.py (class promotion) — that's a separate,
 real feature that ended up built under the "Step 11" nickname earlier in
 this project by mistake; this module is the one the spec actually means.
 """
+
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, Request
@@ -55,7 +56,10 @@ async def archive_execute(
         return templates.TemplateResponse(
             "archive/preview.html",
             {
-                "request": request, "admin": admin, **summary, "done": False,
+                "request": request,
+                "admin": admin,
+                **summary,
+                "done": False,
                 "error": "Nothing to archive — AttendanceRecord is already empty.",
             },
         )
@@ -72,7 +76,10 @@ async def archive_execute(
         return templates.TemplateResponse(
             "archive/preview.html",
             {
-                "request": request, "admin": admin, **summary, "done": False,
+                "request": request,
+                "admin": admin,
+                **summary,
+                "done": False,
                 "error": f"Upload failed — AttendanceRecord was NOT cleared. {exc}",
             },
         )
@@ -104,9 +111,16 @@ async def archive_execute(
     return templates.TemplateResponse(
         "archive/preview.html",
         {
-            "request": request, "admin": admin,
-            "total": 0, "start_date": None, "end_date": None, "class_counts": [], "teacher_count": 0,
-            "done": True, "result_archived": summary["total"], "result_filename": remote_filename,
+            "request": request,
+            "admin": admin,
+            "total": 0,
+            "start_date": None,
+            "end_date": None,
+            "class_counts": [],
+            "teacher_count": 0,
+            "done": True,
+            "result_archived": summary["total"],
+            "result_filename": remote_filename,
             "error": None,
         },
     )

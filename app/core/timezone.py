@@ -14,6 +14,7 @@ per the existing convention (see security.py's new_expiry() docstring) —
 this module doesn't change that, it only fixes "what day is today" for
 business logic that was incorrectly using the naive form.
 """
+
 from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
