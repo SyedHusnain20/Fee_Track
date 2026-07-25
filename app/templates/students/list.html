@@ -46,6 +46,7 @@
                 <th class="px-4 py-3 font-medium">Name</th>
                 <th class="px-4 py-3 font-medium">Father's Name</th>
                 <th class="px-4 py-3 font-medium">Class</th>
+                <th class="px-4 py-3 font-medium">Cat.</th>
                 <th class="px-4 py-3 font-medium">WhatsApp</th>
                 <th class="px-4 py-3 font-medium">Total Fee</th>
                 <th class="px-4 py-3 font-medium">Fee Status</th>
@@ -60,6 +61,13 @@
                 <td class="px-4 py-3 text-slate-900">{{ student.name }}</td>
                 <td class="px-4 py-3 text-slate-500">{{ student.father_name }}</td>
                 <td class="px-4 py-3 text-slate-500">{{ student.class_level.name }}</td>
+                <td class="px-4 py-3">
+                    {% if row.category_code %}
+                    <span class="font-mono text-xs font-semibold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded" title="{{ row.category_tooltip }}">{{ row.category_code }}</span>
+                    {% else %}
+                    <span class="text-xs text-slate-300">—</span>
+                    {% endif %}
+                </td>
                 <td class="px-4 py-3 text-slate-500">{{ student.parent_whatsapp }}</td>
                 <td class="px-4 py-3 {% if row.is_overdue %}text-red-700 font-medium{% else %}text-slate-700{% endif %}">
                     Rs {{ "%.2f"|format(row.total_fee) }}
@@ -92,7 +100,7 @@
             </tr>
             {% else %}
             <tr>
-                <td colspan="8" class="px-4 py-8 text-center text-slate-400">No students match this filter.</td>
+                <td colspan="9" class="px-4 py-8 text-center text-slate-400">No students match this filter.</td>
             </tr>
             {% endfor %}
         </tbody>
