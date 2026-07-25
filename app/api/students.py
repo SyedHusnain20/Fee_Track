@@ -25,8 +25,7 @@ migration) is validated BEFORE the student row is created — an ineligible
 selection creates nothing at all, rather than leaving a half-created
 student with only some of the requested enrollments.
 """
-
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 from typing import List, Optional
 
@@ -130,9 +129,7 @@ def build_student_detail_context(
     # rendering an all-red strip for a category they were never enrolled
     # in would read as "absent" rather than "not applicable."
     today = school_today()
-    last_7_days = [
-        today - timedelta(days=offset) for offset in range(6, -1, -1)
-    ]  # oldest -> newest
+    last_7_days = [today - timedelta(days=offset) for offset in range(6, -1, -1)]  # oldest -> newest
 
     show_school_attendance = any(e.category == FeeCategory.SCHOOL for e in active_enrollments)
     show_academy_attendance = any(
@@ -150,19 +147,11 @@ def build_student_detail_context(
             )
         ).all()
 
-    present_school_dates = {
-        r.scan_date for r in recent_attendance if r.session == AttendanceSession.SCHOOL
-    }
-    present_academy_dates = {
-        r.scan_date for r in recent_attendance if r.session == AttendanceSession.ACADEMY
-    }
+    present_school_dates = {r.scan_date for r in recent_attendance if r.session == AttendanceSession.SCHOOL}
+    present_academy_dates = {r.scan_date for r in recent_attendance if r.session == AttendanceSession.ACADEMY}
 
-    school_attendance_strip = [
-        {"date": d, "present": d in present_school_dates} for d in last_7_days
-    ]
-    academy_attendance_strip = [
-        {"date": d, "present": d in present_academy_dates} for d in last_7_days
-    ]
+    school_attendance_strip = [{"date": d, "present": d in present_school_dates} for d in last_7_days]
+    academy_attendance_strip = [{"date": d, "present": d in present_academy_dates} for d in last_7_days]
 
     return {
         "request": request,
@@ -226,9 +215,7 @@ async def list_students(
     search_term = (search or "").strip()
     if search_term:
         like = f"%{search_term}%"
-        base_query = base_query.where(
-            or_(Student.name.ilike(like), Student.roll_number.ilike(like))
-        )
+        base_query = base_query.where(or_(Student.name.ilike(like), Student.roll_number.ilike(like)))
 
     if class_level_id_int:
         base_query = base_query.where(Student.class_level_id == class_level_id_int)
@@ -247,9 +234,7 @@ async def list_students(
         base_query = base_query.where(Student.id.in_(matching_ids))
     elif group == "academy":
         matching_ids = select(Enrollment.student_id).where(
-            Enrollment.category.in_(
-                [FeeCategory.COACHING, FeeCategory.ENGLISH, FeeCategory.COMPUTER]
-            ),
+            Enrollment.category.in_([FeeCategory.COACHING, FeeCategory.ENGLISH, FeeCategory.COMPUTER]),
             Enrollment.status == EnrollmentStatus.ACTIVE,
         )
         base_query = base_query.where(Student.id.in_(matching_ids))
@@ -266,7 +251,8 @@ async def list_students(
     # that's existed since the original build, separate from the fee one.
     # This fetches all needed class levels in a single extra query instead.
     page_query = (
-        base_query.options(selectinload(Student.class_level))
+        base_query
+        .options(selectinload(Student.class_level))
         .order_by(Student.roll_number)
         .offset((page - 1) * PAGE_SIZE)
         .limit(PAGE_SIZE)
@@ -351,17 +337,15 @@ async def list_students(
         # (fee_cycle_generation.py skips zero-due students outright), so
         # they show "Unpaid" permanently rather than "N/A" — intentional,
         # not a bug.
-        fee_status = (
-            "Paid" if (cycle is not None and cycle.status == FeeCycleStatus.PAID) else "Unpaid"
-        )
-        rows.append(
-            {
-                "student": student,
-                "total_fee": total_fee,
-                "is_overdue": is_overdue,
-                "fee_status": fee_status,
-            }
-        )
+        fee_status = "Paid" if (cycle is not None and cycle.status == FeeCycleStatus.PAID) else "Unpaid"
+        rows.append({
+            "student": student,
+            "total_fee": total_fee,
+            "is_overdue": is_overdue,
+            "fee_status": fee_status,
+            "category_code": category_code,
+            "category_tooltip": category_tooltip,
+        })
 
     return templates.TemplateResponse(
         "students/list.html",
@@ -447,8 +431,7 @@ async def create_student(
         class_level = session.get(ClassLevel, class_level_id)
         class_offset = class_level.class_offset if class_level else None
         ineligible = [
-            c
-            for c in selected_categories
+            c for c in selected_categories
             if class_offset is None or get_band_fee(session, c, class_offset) is None
         ]
         if ineligible:
