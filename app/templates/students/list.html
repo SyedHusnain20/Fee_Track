@@ -70,7 +70,7 @@
                 </td>
                 <td class="px-4 py-3 align-top text-slate-500 whitespace-nowrap">{{ student.parent_whatsapp }}</td>
                 <td class="px-4 py-3 align-top {% if row.is_overdue %}text-red-700 font-medium{% else %}text-slate-700{% endif %}">
-                    Rs {{ "%.2f"|format(row.total_fee) }}
+                    Rs {{ "%.f"|format(row.total_fee) }}
                     {% if row.is_overdue %}
                     <span class="text-xs text-red-600 ml-1 whitespace-nowrap" title="Unpaid for the current period, past day {{ due_day }} of the month">⚠</span>
                     {% endif %}
