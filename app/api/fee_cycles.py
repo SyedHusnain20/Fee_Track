@@ -21,6 +21,7 @@ from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, or_, select
 
 from app.api.deps import get_current_admin
+from app.api.students import CATEGORY_LABELS, DISCOUNT_TYPE_LABELS
 from app.core.database import get_session
 from app.core.timezone import school_today
 from app.models.admin_user import AdminUser
@@ -46,6 +47,7 @@ def _snapshot(cycle: FeeCycle) -> dict:
         "total_due": float(cycle.total_due),
         "status": cycle.status.value,
         "paid_date": cycle.paid_date.isoformat() if cycle.paid_date else None,
+        "collected_by_id": cycle.collected_by_id,
     }
 
 
@@ -138,12 +140,26 @@ async def view_invoice(
     if not student:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Student not found.")
 
+    # No ORM relationship on FeeCycle.collected_by_id (see the model) —
+    # looked up manually here, the one place that actually needs the name.
+    collected_by = session.get(AdminUser, cycle.collected_by_id) if cycle.collected_by_id else None
+
     return templates.TemplateResponse(
         "fee_cycles/invoice.html",
         {
             "request": request,
             "cycle": cycle,
             "student": student,
+            "collected_by": collected_by,
+            # category_breakdown's keys are plain strings (FeeCategory.value,
+            # from the JSON snapshot) — string-keyed here too so the
+            # template can look labels up directly without an enum
+            # round-trip. category_order fixes iteration to School,
+            # Coaching, English, Computer regardless of dict insertion
+            # order, so the breakdown reads the same way every time.
+            "category_labels": {c.value: label for c, label in CATEGORY_LABELS.items()},
+            "category_order": [c.value for c in CATEGORY_LABELS],
+            "discount_type_labels": {dt.value: label for dt, label in DISCOUNT_TYPE_LABELS.items()},
             # Derived from the cycle's own id -- unique for free, no new
             # counter/table needed, matches this table's existing
             # snapshot-not-recompute philosophy (Section 5).
@@ -203,6 +219,7 @@ async def mark_paid(
         before = _snapshot(cycle)
         cycle.status = FeeCycleStatus.PAID
         cycle.paid_date = school_today()
+        cycle.collected_by_id = admin.id
         cycle.updated_by_id = admin.id
         cycle.updated_at = datetime.utcnow()
         session.add(cycle)
@@ -218,9 +235,15 @@ async def mark_paid(
         )
         session.commit()
 
+    # show_invoice tells the destination page (fee-cycles list or student
+    # detail, whichever "next" points to) to auto-open the invoice in a
+    # pop-up modal — see the <dialog> + inline script in those templates.
     fallback = f"/fee-cycles?period={cycle.period}"
+    destination = _safe_redirect(next, fallback)
+    separator = "&" if "?" in destination else "?"
     return RedirectResponse(
-        url=_safe_redirect(next, fallback), status_code=status.HTTP_303_SEE_OTHER
+        url=f"{destination}{separator}show_invoice={cycle.id}",
+        status_code=status.HTTP_303_SEE_OTHER,
     )
 
 
@@ -239,6 +262,12 @@ async def mark_unpaid(
         before = _snapshot(cycle)
         cycle.status = FeeCycleStatus.UNPAID
         cycle.paid_date = None
+        # A cycle that isn't currently paid was never "collected" by
+        # anyone in the present tense — see the field's docstring on
+        # FeeCycle. The audit log entry just below still records who
+        # flipped it back to unpaid, and before_value still shows who had
+        # collected it before this change, so that history isn't lost.
+        cycle.collected_by_id = None
         cycle.updated_by_id = admin.id
         cycle.updated_at = datetime.utcnow()
         session.add(cycle)

@@ -114,4 +114,30 @@
     </table>
 </div>
 
+<dialog id="invoice-modal" class="rounded-xl p-0 backdrop:bg-slate-900/50 w-full max-w-2xl">
+    <div class="flex justify-end p-2 border-b border-slate-200">
+        <button type="button" onclick="document.getElementById('invoice-modal').close()"
+                class="text-slate-400 hover:text-slate-700 text-sm px-2 py-1">&times; Close</button>
+    </div>
+    <iframe id="invoice-modal-frame" src="about:blank" class="w-full h-[80vh] border-0"></iframe>
+</dialog>
+
+<script>
+(function () {
+    // Set by /fee-cycles/{id}/mark-paid's redirect — pops the invoice up
+    // right after marking paid, without leaving this page. Query param
+    // is stripped from the URL bar afterward so refreshing doesn't
+    // reopen it.
+    const params = new URLSearchParams(window.location.search);
+    const cycleId = params.get("show_invoice");
+    if (cycleId) {
+        document.getElementById("invoice-modal-frame").src = "/fee-cycles/" + cycleId + "/invoice";
+        document.getElementById("invoice-modal").showModal();
+        params.delete("show_invoice");
+        const rest = params.toString();
+        history.replaceState(null, "", window.location.pathname + (rest ? "?" + rest : ""));
+    }
+})();
+</script>
+
 {% endblock %}
