@@ -3,6 +3,10 @@ Admin edits each band's fee amount; band structure itself (which
 class-offset ranges exist per category) is fixed by the migration that
 created it -- adding/removing bands needs a new migration, this route
 only edits amounts.
+
+Restricted to require_super_admin — only reachable via /settings, and
+only visible in the navbar to super admins, per explicit access-control
+decision (same treatment as /settings and /rollover).
 """
 
 from decimal import Decimal, InvalidOperation
@@ -12,7 +16,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, select
 
-from app.api.deps import get_current_admin
+from app.api.deps import require_super_admin
 from app.core.database import get_session
 from app.models.admin_user import AdminUser
 from app.models.category_fee_default import CategoryFeeDefault
@@ -45,7 +49,7 @@ def _grouped_defaults(session: Session) -> list[dict]:
 async def list_category_fees(
     request: Request,
     session: Session = Depends(get_session),
-    admin: AdminUser = Depends(get_current_admin),
+    admin: AdminUser = Depends(require_super_admin),
 ):
     return templates.TemplateResponse(
         "category_fees/list.html",
@@ -59,7 +63,7 @@ async def update_category_fee(
     request: Request,
     default_amount: str = Form(...),
     session: Session = Depends(get_session),
-    admin: AdminUser = Depends(get_current_admin),
+    admin: AdminUser = Depends(require_super_admin),
 ):
     row = session.get(CategoryFeeDefault, band_id)
     if not row:

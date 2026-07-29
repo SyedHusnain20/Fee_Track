@@ -12,14 +12,13 @@ during the nightly UTC/Karachi day-rollover window.
 """
 
 from datetime import datetime
-from decimal import Decimal
 from typing import Optional
 from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
-from sqlmodel import Session, select
+from sqlmodel import Session, or_, select
 
 from app.api.deps import get_current_admin
 from app.core.database import get_session
@@ -59,25 +58,19 @@ def _safe_redirect(candidate: Optional[str], fallback: str) -> str:
     return fallback
 
 
-def _totals(cycles: list[FeeCycle]) -> dict:
-    """Three distinct figures, not two that happen to collapse together
-    when everything's paid:
-      - total_revenue: every cycle for the period, paid or not (what was billed)
-      - total_collected: paid cycles only (what's actually in hand)
-      - total_outstanding: unpaid cycles only (what's still owed)
-    total_revenue == total_collected + total_outstanding, always.
+def _counts(cycles: list[FeeCycle]) -> dict:
+    """Non-sensitive student counts for this page — the actual Rs amounts
+    (revenue/collected/outstanding) moved to /settings, since fee totals
+    are financial info that shouldn't be visible to every admin who opens
+    this page. See app.api.settings for the amount-based version.
     """
-    total_revenue = sum((c.total_due for c in cycles), Decimal("0.00"))
-    total_collected = sum(
-        (c.total_due for c in cycles if c.status == FeeCycleStatus.PAID), Decimal("0.00")
-    )
-    total_outstanding = sum(
-        (c.total_due for c in cycles if c.status == FeeCycleStatus.UNPAID), Decimal("0.00")
-    )
+    total_count = len(cycles)
+    paid_count = sum(1 for c in cycles if c.status == FeeCycleStatus.PAID)
+    remaining_count = total_count - paid_count
     return {
-        "total_revenue": total_revenue,
-        "total_collected": total_collected,
-        "total_outstanding": total_outstanding,
+        "total_count": total_count,
+        "paid_count": paid_count,
+        "remaining_count": remaining_count,
     }
 
 
@@ -85,16 +78,31 @@ def _totals(cycles: list[FeeCycle]) -> dict:
 async def list_fee_cycles(
     request: Request,
     period: Optional[str] = None,
+    search: Optional[str] = None,
     message: Optional[str] = None,
     session: Session = Depends(get_session),
     admin: AdminUser = Depends(get_current_admin),
 ):
     period = period or _current_period()
-    cycles = session.exec(
+    search_term = search.strip() if search else ""
+
+    query = (
         select(FeeCycle)
+        .join(Student, FeeCycle.student_id == Student.id)
         .where(FeeCycle.period == period)
-        .order_by(FeeCycle.status.desc(), FeeCycle.student_id)
-    ).all()
+        # Ascending, not descending: FeeCycleStatus is a native Postgres
+        # enum ordered by declaration (UNPAID, then PAID — see
+        # app/models/enums.py), so ascending puts unpaid rows first. This
+        # was intentionally flipped from the original descending order,
+        # which surfaced already-handled paid rows above the ones that
+        # still need attention.
+        .order_by(FeeCycle.status.asc(), FeeCycle.student_id)
+    )
+    if search_term:
+        like = f"%{search_term}%"
+        query = query.where(or_(Student.name.ilike(like), Student.roll_number.ilike(like)))
+
+    cycles = session.exec(query).all()
 
     return templates.TemplateResponse(
         "fee_cycles/list.html",
@@ -102,9 +110,10 @@ async def list_fee_cycles(
             "request": request,
             "admin": admin,
             "period": period,
+            "search": search_term,
             "cycles": cycles,
             "message": message,
-            **_totals(cycles),
+            **_counts(cycles),
         },
     )
 
@@ -159,9 +168,10 @@ async def generate(
                 "request": request,
                 "admin": admin,
                 "period": period,
+                "search": "",
                 "cycles": [],
                 "message": str(exc),
-                **_totals([]),
+                **_counts([]),
             },
             status_code=status.HTTP_400_BAD_REQUEST,
         )

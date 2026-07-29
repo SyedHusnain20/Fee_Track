@@ -18,7 +18,7 @@ from app.core.config import settings
 # Requires: pip install "passlib[argon2]"
 pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
 
-SESSION_COOKIE_NAME = "raabta_session"
+SESSION_COOKIE_NAME = "fee_track_session"
 SESSION_LIFETIME = timedelta(hours=12)
 
 # A precomputed argon2 hash of a random string. Used as a stand-in when

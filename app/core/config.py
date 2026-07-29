@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     # --- Core ---
-    APP_NAME: str = "Raabta"
+    APP_NAME: str = "Fee Track"
     ENVIRONMENT: str = "development"  # development | production
     SECRET_KEY: str
 

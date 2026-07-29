@@ -1,11 +1,20 @@
 """Fee computation — Section 5, updated for class-level-banded category
-fees. Enrollment rows never store their own fee amount; it's always
-looked up live from the current CategoryFeeDefault band matching the
-student's class_offset, so a change to a band's fee ripples to every
-enrolled student in that band instantly.
+fees, and again for the move from per-enrollment discounts to a single
+overall discount per student. Enrollment rows never store their own fee
+amount; it's always looked up live from the current CategoryFeeDefault
+band matching the student's class_offset, so a change to a band's fee
+ripples to every enrolled student in that band instantly.
+
+Discount now applies exactly once, to a student's combined total across
+all active enrollments (Student.discount_type/discount_value) — not
+separately per category as it used to (that lived on Enrollment.discount_*
+until migration a3f9c81b2d47 moved it here). This changes what "the fee
+for category X" means: get_band_fee() still returns each category's raw,
+undiscounted band rate — the discount is only ever visible in the
+combined total, never attributed to one category over another.
 """
 
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import Optional
 
 from sqlmodel import Session, select
@@ -18,22 +27,48 @@ from app.models.student import Student
 ZERO = Decimal("0.00")
 
 
-def compute_enrollment_fee(
-    default_amount: Decimal,
+def apply_discount(
+    amount: Decimal,
     discount_type: DiscountType,
     discount_value: Optional[Decimal],
 ) -> Decimal:
-    """Unchanged — net fee given whatever band default_amount applies,
-    minus its discount. Never negative."""
+    """Net amount after applying a discount. Never negative. Same discount
+    math as the old per-enrollment version, just applied once to a
+    student's combined fee total now rather than separately per
+    enrollment/category."""
     if discount_type == DiscountType.NONE or discount_value is None:
-        fee = default_amount
+        result = amount
     elif discount_type == DiscountType.FIXED:
-        fee = default_amount - discount_value
+        result = amount - discount_value
     elif discount_type == DiscountType.PERCENTAGE:
-        fee = default_amount * (Decimal("100") - discount_value) / Decimal("100")
+        result = amount * (Decimal("100") - discount_value) / Decimal("100")
     else:
-        fee = default_amount
-    return fee if fee > ZERO else ZERO
+        result = amount
+    return result if result > ZERO else ZERO
+
+
+def parse_discount_input(discount_type: DiscountType, discount_value_raw: str) -> Optional[Decimal]:
+    """None for DiscountType.NONE, otherwise a validated Decimal. Raises
+    ValueError with a message safe to show directly to the admin. Same
+    validation app/api/enrollments.py used to do per-enrollment; now used
+    once, at student add/edit time, in app/api/students.py."""
+    if discount_type == DiscountType.NONE:
+        return None
+
+    if not discount_value_raw.strip():
+        raise ValueError("Enter a discount value for a fixed or percentage discount.")
+
+    try:
+        value = Decimal(discount_value_raw)
+    except InvalidOperation:
+        raise ValueError("Discount value must be a number.")
+
+    if value < 0:
+        raise ValueError("Discount value can't be negative.")
+    if discount_type == DiscountType.PERCENTAGE and value > 100:
+        raise ValueError("A percentage discount can't exceed 100.")
+
+    return value
 
 
 def get_band_fee(session: Session, category: FeeCategory, class_offset: int) -> Optional[Decimal]:
@@ -42,7 +77,12 @@ def get_band_fee(session: Session, category: FeeCategory, class_offset: int) -> 
     also what enrollments.py's create_enrollment uses to reject an
     enrollment outright -- e.g. School's bands stop at offset 12 (Class
     10), so a Class 11 student gets None for category='school', and that
-    enrollment is refused rather than silently charged Rs 0."""
+    enrollment is refused rather than silently charged Rs 0.
+
+    This is the RAW band rate — no discount applied here. Discount only
+    ever applies once, to the combined total (see
+    compute_student_fee_breakdown).
+    """
     row = session.exec(
         select(CategoryFeeDefault).where(
             CategoryFeeDefault.category == category,
@@ -53,31 +93,64 @@ def get_band_fee(session: Session, category: FeeCategory, class_offset: int) -> 
     return row.default_amount if row else None
 
 
-def compute_student_total_fee(session: Session, student_id: int) -> Decimal:
-    """Sum of compute_enrollment_fee() across a student's active
-    enrollments, each looked up against the band matching the student's
-    current class level. An enrollment whose category has no matching
-    band for this student's class level is skipped (contributes 0) rather
-    than raising -- this function also backs FeeCycle generation and
-    shouldn't crash a live billing run over one bad row."""
-    student = session.get(Student, student_id)
-    if student is None:
-        return ZERO
+def compute_student_fee_breakdown(session: Session, student: Student) -> dict:
+    """Full breakdown for a student's active enrollments, each priced at
+    the current band rate for their class level, with the student's
+    single overall discount applied once to the combined subtotal.
+
+    Takes a Student object (not student_id) since callers generally
+    already have it loaded — avoids a redundant lookup. Use
+    compute_student_total_fee() below if all you have is an id.
+
+    Returns:
+        category_amounts: {FeeCategory: Decimal} — raw, undiscounted
+            per-category amounts, only for categories the student is
+            actively enrolled in and which have a matching band.
+        subtotal: sum of category_amounts.values()
+        discount_type / discount_value: the student's own settings, as-is
+        discount_amount: subtotal - final_total (always >= 0)
+        final_total: subtotal after the discount, never negative
+
+    Powers the Students list Total Fee column, the student detail page's
+    fee breakdown, FeeCycle generation (final_total becomes the
+    snapshotted total_due), and — from Phase 3 on — the itemized invoice.
+    """
     class_offset = student.class_level.class_offset
 
     active_enrollments = session.exec(
         select(Enrollment).where(
-            Enrollment.student_id == student_id,
+            Enrollment.student_id == student.id,
             Enrollment.status == EnrollmentStatus.ACTIVE,
         )
     ).all()
 
-    total = ZERO
+    category_amounts: dict = {}
+    subtotal = ZERO
     for enrollment in active_enrollments:
-        default_amount = get_band_fee(session, enrollment.category, class_offset)
-        if default_amount is None:
+        amount = get_band_fee(session, enrollment.category, class_offset)
+        if amount is None:
             continue
-        total += compute_enrollment_fee(
-            default_amount, enrollment.discount_type, enrollment.discount_value
-        )
-    return total
+        category_amounts[enrollment.category] = amount
+        subtotal += amount
+
+    final_total = apply_discount(subtotal, student.discount_type, student.discount_value)
+    discount_amount = subtotal - final_total
+
+    return {
+        "category_amounts": category_amounts,
+        "subtotal": subtotal,
+        "discount_type": student.discount_type,
+        "discount_value": student.discount_value,
+        "discount_amount": discount_amount,
+        "final_total": final_total,
+    }
+
+
+def compute_student_total_fee(session: Session, student_id: int) -> Decimal:
+    """Thin wrapper over compute_student_fee_breakdown() for callers that
+    only have a student_id and only need the bottom-line number — FeeCycle
+    generation."""
+    student = session.get(Student, student_id)
+    if student is None:
+        return ZERO
+    return compute_student_fee_breakdown(session, student)["final_total"]

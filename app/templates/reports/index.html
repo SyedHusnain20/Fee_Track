@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Reports — Fee Track Admin{% endblock %}
+{% block content %}
+
+<h1 class="text-xl font-semibold text-slate-900 mb-6">Reports</h1>
+
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl">
+    <a href="/reports/fees" class="block bg-white border border-slate-200 rounded-xl p-6 hover:border-slate-400 transition-colors">
+        <div class="text-base font-medium text-slate-900">Fee Reports</div>
+        <div class="text-sm text-slate-500 mt-1">Search a student to see their last 12 months of fee payment history.</div>
+    </a>
+    <a href="/reports/attendance" class="block bg-white border border-slate-200 rounded-xl p-6 hover:border-slate-400 transition-colors">
+        <div class="text-base font-medium text-slate-900">Attendance Reports</div>
+        <div class="text-sm text-slate-500 mt-1">Search a student to see their last 30 academic days of School attendance.</div>
+    </a>
+</div>
+
+{% endblock %}

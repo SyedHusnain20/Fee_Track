@@ -1,7 +1,13 @@
-"""Enrollment management — Section 5 (fee & discount system) and Section 3
-(admin capability: manage enrollment, apply per-student per-category
-discounts). Always managed in the context of a specific student — see
-students.py's student_detail route, which these all redirect back to.
+"""Enrollment management — Section 5 (fee system) and Section 3 (admin
+capability: manage enrollment). Always managed in the context of a
+specific student — see students.py's student_detail route, which these
+all redirect back to.
+
+Discount used to live here too (per-student-per-category, via
+update_enrollment_discount) — that route is gone. A student now has
+exactly one overall discount, set at creation time or edited via the
+student edit form (app/api/students.py's create_student/update_student),
+not per enrollment. See app/models/student.py and app/services/fees.py.
 
 Per Key Design Principle #7 (Section 13), every change here writes through
 the audit-log hook — not optional. A status flip to inactive ("ending" an
@@ -10,8 +16,6 @@ so UPDATE matches what actually happened to it.
 """
 
 from datetime import datetime
-from decimal import Decimal, InvalidOperation
-from typing import Optional
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -24,7 +28,7 @@ from app.api.students import build_student_detail_context
 from app.core.database import get_session
 from app.models.admin_user import AdminUser
 from app.models.enrollment import Enrollment
-from app.models.enums import AuditAction, DiscountType, EnrollmentStatus, FeeCategory
+from app.models.enums import AuditAction, EnrollmentStatus, FeeCategory
 from app.models.student import Student
 from app.services.audit import write_audit_log
 from app.services.fees import get_band_fee
@@ -36,34 +40,8 @@ templates = Jinja2Templates(directory="app/templates")
 def _snapshot(enrollment: Enrollment) -> dict:
     return {
         "category": enrollment.category.value,
-        "discount_type": enrollment.discount_type.value,
-        "discount_value": (
-            float(enrollment.discount_value) if enrollment.discount_value is not None else None
-        ),
         "status": enrollment.status.value,
     }
-
-
-def _parse_discount(discount_type: DiscountType, discount_value_raw: str) -> Optional[Decimal]:
-    """None for DiscountType.NONE, otherwise a validated Decimal. Raises
-    ValueError with a message safe to show directly to the admin."""
-    if discount_type == DiscountType.NONE:
-        return None
-
-    if not discount_value_raw.strip():
-        raise ValueError("Enter a discount value for a fixed or percentage discount.")
-
-    try:
-        value = Decimal(discount_value_raw)
-    except InvalidOperation:
-        raise ValueError("Discount value must be a number.")
-
-    if value < 0:
-        raise ValueError("Discount value can't be negative.")
-    if discount_type == DiscountType.PERCENTAGE and value > 100:
-        raise ValueError("A percentage discount can't exceed 100.")
-
-    return value
 
 
 def _error_response(
@@ -86,19 +64,12 @@ async def create_enrollment(
     student_id: int,
     request: Request,
     category: FeeCategory = Form(...),
-    discount_type: DiscountType = Form(DiscountType.NONE),
-    discount_value: str = Form(""),
     session: Session = Depends(get_session),
     admin: AdminUser = Depends(get_current_admin),
 ):
     student = session.get(Student, student_id)
     if not student:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Student not found.")
-
-    try:
-        parsed_discount_value = _parse_discount(discount_type, discount_value)
-    except ValueError as exc:
-        return _error_response(request, session, admin, student, str(exc))
 
     class_offset = student.class_level.class_offset
     if get_band_fee(session, category, class_offset) is None:
@@ -113,8 +84,6 @@ async def create_enrollment(
     enrollment = Enrollment(
         student_id=student_id,
         category=category,
-        discount_type=discount_type,
-        discount_value=parsed_discount_value,
         status=EnrollmentStatus.ACTIVE,
         created_by_id=admin.id,
     )
@@ -144,53 +113,6 @@ async def create_enrollment(
         entity_type="Enrollment",
         entity_id=enrollment.id,
         before_value=None,
-        after_value=_snapshot(enrollment),
-    )
-    session.commit()
-    return RedirectResponse(url=f"/students/{student_id}", status_code=status.HTTP_303_SEE_OTHER)
-
-
-@router.post("/{enrollment_id}/update")
-async def update_enrollment_discount(
-    student_id: int,
-    enrollment_id: int,
-    request: Request,
-    discount_type: DiscountType = Form(...),
-    discount_value: str = Form(""),
-    session: Session = Depends(get_session),
-    admin: AdminUser = Depends(get_current_admin),
-):
-    student = session.get(Student, student_id)
-    if not student:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Student not found.")
-
-    enrollment = session.get(Enrollment, enrollment_id)
-    if not enrollment or enrollment.student_id != student_id:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Enrollment not found.")
-    if enrollment.status != EnrollmentStatus.ACTIVE:
-        return _error_response(
-            request, session, admin, student, "Can't change the discount on an inactive enrollment."
-        )
-
-    try:
-        parsed_discount_value = _parse_discount(discount_type, discount_value)
-    except ValueError as exc:
-        return _error_response(request, session, admin, student, str(exc))
-
-    before = _snapshot(enrollment)
-    enrollment.discount_type = discount_type
-    enrollment.discount_value = parsed_discount_value
-    enrollment.updated_by_id = admin.id
-    enrollment.updated_at = datetime.utcnow()
-    session.add(enrollment)
-
-    write_audit_log(
-        session,
-        admin_id=admin.id,
-        action=AuditAction.UPDATE,
-        entity_type="Enrollment",
-        entity_id=enrollment.id,
-        before_value=before,
         after_value=_snapshot(enrollment),
     )
     session.commit()

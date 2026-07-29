@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}Fee Reports — Fee Track Admin{% endblock %}
+{% block content %}
+
+<a href="/reports" class="text-sm text-slate-500 hover:text-slate-800 mb-4 inline-block">&larr; Back to Reports</a>
+<h1 class="text-xl font-semibold text-slate-900 mb-1">Fee Reports</h1>
+<p class="text-sm text-slate-500 mb-6">Last 12 months of fee status per student.</p>
+
+<form method="get" action="/reports/fees" class="bg-white border border-slate-200 rounded-xl p-4 mb-6 flex flex-wrap items-end gap-4">
+    <div class="flex-1 min-w-[220px]">
+        <label class="block text-xs text-slate-500 mb-1">Search</label>
+        <input type="text" name="search" value="{{ search }}" placeholder="Roll number or name..."
+               class="w-full rounded border border-slate-300 text-sm px-2 py-1.5">
+    </div>
+    <button type="submit" class="rounded-md bg-slate-800 text-white text-sm font-medium px-4 py-1.5 hover:bg-slate-700">
+        Search
+    </button>
+</form>
+
+{% if truncated %}
+<div class="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-4 py-2 mb-6">
+    More than 10 students matched — showing the first 10. Narrow your search to see a specific student.
+</div>
+{% endif %}
+
+{% if not search %}
+<p class="text-sm text-slate-400">Search for a student above to view their fee report.</p>
+{% elif not reports %}
+<p class="text-sm text-slate-400">No students match "{{ search }}".</p>
+{% endif %}
+
+{% for report in reports %}
+{% set student = report.student %}
+<div class="bg-white border border-slate-200 rounded-xl overflow-hidden mb-6">
+    <div class="px-4 py-3 border-b border-slate-200 flex items-center justify-between {% if not student.is_active %}opacity-50{% endif %}">
+        <div>
+            <a href="/students/{{ student.id }}" class="text-slate-900 font-medium hover:underline">{{ student.name }}</a>
+            <span class="text-xs text-slate-400 ml-2 font-mono">{{ student.roll_number }}</span>
+            {% if not student.is_active %}<span class="text-xs text-red-500 ml-2">Inactive</span>{% endif %}
+        </div>
+        <div class="text-xs text-slate-400">{{ student.class_level.name }}</div>
+    </div>
+    <table class="w-full text-sm">
+        <thead class="bg-slate-50 border-b border-slate-200 text-left text-slate-500">
+            <tr>
+                <th class="px-4 py-2 font-medium">Month</th>
+                <th class="px-4 py-2 font-medium">Status</th>
+                <th class="px-4 py-2 font-medium">Payment date</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+            {% for row in report.month_rows %}
+            <tr>
+                <td class="px-4 py-2 align-top text-slate-700">{{ row.period_label }}</td>
+                <td class="px-4 py-2 align-top">
+                    {% if row.status == "Paid" %}
+                    <span class="text-xs font-medium text-green-700 bg-green-50 px-2 py-1 rounded">Paid</span>
+                    {% elif row.status == "Unpaid" %}
+                    <span class="text-xs font-medium text-red-700 bg-red-50 px-2 py-1 rounded">Unpaid</span>
+                    {% else %}
+                    <span class="text-xs text-slate-400">No cycle</span>
+                    {% endif %}
+                </td>
+                <td class="px-4 py-2 align-top text-slate-500">{{ row.paid_date.strftime('%d %b %Y') if row.paid_date else "—" }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endfor %}
+
+{% endblock %}

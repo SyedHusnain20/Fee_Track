@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Raabta Admin{% endblock %}</title>
+    <title>{% block title %}Fee Track Admin{% endblock %}</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="min-h-screen bg-slate-50">
@@ -12,16 +12,16 @@
         <div class="max-w-6xl mx-auto px-4 flex items-center justify-between h-14">
             <div class="flex items-center gap-6">
                 <a href="/dashboard" class="font-semibold flex items-center gap-2">
-                    <span class="inline-flex items-center justify-center w-7 h-7 rounded bg-white text-slate-800 text-sm font-bold">R</span>
-                    Raabta
+                    <span class="inline-flex items-center justify-center w-7 h-7 rounded bg-white text-slate-800 text-sm font-bold">F</span>
+                    Fee Track
                 </a>
                 <a href="/students" class="text-sm text-slate-300 hover:text-white">Students</a>
                 <a href="/teachers" class="text-sm text-slate-300 hover:text-white">Teachers</a>
-                <a href="/category-fees" class="text-sm text-slate-300 hover:text-white">Category Fees</a>
                 <a href="/fee-cycles" class="text-sm text-slate-300 hover:text-white">Fee Cycles</a>
+                {% if admin and admin.is_super_admin %}
                 <a href="/settings" class="text-sm text-slate-300 hover:text-white">Settings</a>
-                <a href="/reports/attendance" class="text-sm text-slate-300 hover:text-white">Reports</a>
-                <a href="/rollover" class="text-sm text-slate-300 hover:text-white">Rollover</a>
+                {% endif %}
+                <a href="/reports" class="text-sm text-slate-300 hover:text-white">Reports</a>
                 <a href="/archive" class="text-sm text-slate-300 hover:text-white">Archive</a>
             </div>
             <div class="flex items-center gap-4">
@@ -39,6 +39,10 @@
     <main class="max-w-6xl mx-auto px-4 py-8">
         {% block content %}{% endblock %}
     </main>
+
+    <footer class="max-w-6xl mx-auto px-4 py-6 text-center text-xs text-slate-400">
+        Powered by R&amp;R Digital Solutions
+    </footer>
 
 </body>
 </html>

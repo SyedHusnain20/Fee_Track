@@ -1,8 +1,56 @@
 {% extends "base.html" %}
-{% block title %}Settings — Raabta Admin{% endblock %}
+{% block title %}Settings — Fee Track Admin{% endblock %}
 {% block content %}
 
-<h1 class="text-xl font-semibold text-slate-900 mb-1">Attendance timing</h1>
+<h1 class="text-xl font-semibold text-slate-900 mb-6">Settings</h1>
+
+<h2 class="text-sm font-semibold text-slate-700 mb-2">Fee due date</h2>
+<p class="text-sm text-slate-500 mb-3">
+    After this day of the month, an active student who owes a fee and hasn't paid this month's cycle is highlighted red on the Students list.
+</p>
+{% if due_day_error %}
+<div class="text-sm text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-2 mb-3">{{ due_day_error }}</div>
+{% endif %}
+<form method="post" action="/settings/fee-due-day" class="bg-white border border-slate-200 rounded-xl p-4 max-w-2xl mb-8 flex items-end gap-3">
+    <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
+    <div>
+        <label class="block text-xs text-slate-500 mb-1">Due day</label>
+        <input type="number" name="due_day" value="{{ due_day }}" min="1" max="31"
+               class="w-20 rounded border border-slate-300 text-sm px-2 py-1.5">
+    </div>
+    <button type="submit" class="rounded-md bg-slate-800 text-white text-sm font-medium px-4 py-1.5 hover:bg-slate-700">
+        Save
+    </button>
+</form>
+
+<h2 class="text-sm font-semibold text-slate-700 mb-2">Financial summary</h2>
+<p class="text-sm text-slate-500 mb-3">
+    Revenue, collections, and outstanding fees for a given month. Moved here from Fee Cycles since this is sensitive financial information.
+</p>
+<form method="get" action="/settings" class="flex items-end gap-2 mb-3">
+    <div>
+        <label class="block text-xs text-slate-500 mb-1">Period</label>
+        <input type="month" name="period" value="{{ fin_period }}"
+               class="rounded-md border border-slate-300 px-2 py-1.5 text-sm">
+    </div>
+    <button type="submit" class="rounded-md border border-slate-300 text-sm px-3 py-1.5 hover:bg-slate-50">Go</button>
+</form>
+<div class="grid grid-cols-3 gap-4 max-w-2xl mb-8">
+    <div class="bg-white border border-slate-200 rounded-xl p-4">
+        <div class="text-2xl font-semibold text-slate-900">Rs {{ "%.0f"|format(total_revenue) }}</div>
+        <div class="text-xs text-slate-500 mt-1">Total revenue ({{ fin_cycle_count }} cycle{{ "s" if fin_cycle_count != 1 else "" }})</div>
+    </div>
+    <div class="bg-white border border-slate-200 rounded-xl p-4">
+        <div class="text-2xl font-semibold text-green-700">Rs {{ "%.0f"|format(total_collected) }}</div>
+        <div class="text-xs text-slate-500 mt-1">Fees collected</div>
+    </div>
+    <div class="bg-white border border-slate-200 rounded-xl p-4">
+        <div class="text-2xl font-semibold {{ 'text-amber-700' if total_outstanding > 0 else 'text-slate-900' }}">Rs {{ "%.0f"|format(total_outstanding) }}</div>
+        <div class="text-xs text-slate-500 mt-1">Fees due</div>
+    </div>
+</div>
+
+<h2 class="text-sm font-semibold text-slate-700 mb-2">Attendance timing</h2>
 <p class="text-sm text-slate-500 mb-6">
     Used by the attendance kiosk to mark scans on-time or late. School has a grace period for late calculation; Academy logs arrival time only, with no late judgment. These are seeded with placeholder values — review and correct them before relying on the kiosk for real attendance.
 </p>
@@ -11,7 +59,7 @@
 <div class="text-sm text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-2 mb-6">{{ error }}</div>
 {% endif %}
 
-<div class="bg-white border border-slate-200 rounded-xl overflow-hidden max-w-2xl">
+<div class="bg-white border border-slate-200 rounded-xl overflow-hidden max-w-2xl mb-8">
     <table class="w-full text-sm">
         <thead class="bg-slate-50 border-b border-slate-200 text-left text-slate-500">
             <tr>
@@ -48,6 +96,18 @@
             {% endfor %}
         </tbody>
     </table>
+</div>
+
+<h2 class="text-sm font-semibold text-slate-700 mb-2">More settings</h2>
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl">
+    <a href="/category-fees" class="block bg-white border border-slate-200 rounded-xl p-4 hover:border-slate-400 transition-colors">
+        <div class="text-sm font-medium text-slate-900">Category Fees</div>
+        <div class="text-xs text-slate-500 mt-1">Edit each class-level band's default fee, per category.</div>
+    </a>
+    <a href="/rollover" class="block bg-white border border-slate-200 rounded-xl p-4 hover:border-slate-400 transition-colors">
+        <div class="text-sm font-medium text-slate-900">Academic Year Rollover</div>
+        <div class="text-xs text-slate-500 mt-1">Promote every active student one class level at year-end.</div>
+    </a>
 </div>
 
 {% endblock %}

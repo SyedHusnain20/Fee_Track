@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}{{ student.name }} — Raabta Admin{% endblock %}
+{% block title %}{{ student.name }} — Fee Track Admin{% endblock %}
 {% block content %}
 
 <div class="flex items-center justify-between mb-6">
@@ -75,17 +75,14 @@
     <div class="lg:col-span-2 space-y-6">
 
         <div class="bg-white border border-slate-200 rounded-xl overflow-hidden">
-            <div class="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
+            <div class="px-4 py-3 border-b border-slate-200">
                 <h2 class="text-sm font-semibold text-slate-900">Active enrollments</h2>
-                <span class="text-sm text-slate-500">Total: Rs {{ "%.2f"|format(total_fee) }}/mo</span>
             </div>
             <table class="w-full text-sm">
                 <thead class="bg-slate-50 text-left text-slate-500">
                     <tr>
                         <th class="px-4 py-2 font-medium">Category</th>
-                        <th class="px-4 py-2 font-medium">Default</th>
-                        <th class="px-4 py-2 font-medium">Discount</th>
-                        <th class="px-4 py-2 font-medium">Net fee</th>
+                        <th class="px-4 py-2 font-medium">Fee</th>
                         <th class="px-4 py-2 font-medium text-right">Actions</th>
                     </tr>
                 </thead>
@@ -93,22 +90,7 @@
                     {% for row in fee_rows %}
                     <tr>
                         <td class="px-4 py-3 text-slate-900">{{ category_labels[row.enrollment.category] }}</td>
-                        <td class="px-4 py-3 text-slate-500">Rs {{ "%.2f"|format(row.default_amount) }}</td>
-                        <td class="px-4 py-3 text-slate-500">
-                            <form method="post" action="/students/{{ student.id }}/enrollments/{{ row.enrollment.id }}/update" class="flex items-center gap-2">
-                                <select name="discount_type" class="rounded border border-slate-300 text-xs px-1.5 py-1">
-                                    {% for dt in discount_types %}
-                                    <option value="{{ dt.value }}" {% if row.enrollment.discount_type == dt %}selected{% endif %}>{{ discount_type_labels[dt] }}</option>
-                                    {% endfor %}
-                                </select>
-                                <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
-                                <input type="text" name="discount_value" placeholder="value"
-                                       value="{{ row.enrollment.discount_value if row.enrollment.discount_value is not none else '' }}"
-                                       class="w-20 rounded border border-slate-300 text-xs px-1.5 py-1">
-                                <button type="submit" class="text-xs text-slate-600 hover:text-slate-900 underline">Save</button>
-                            </form>
-                        </td>
-                        <td class="px-4 py-3 font-medium text-slate-900">Rs {{ "%.2f"|format(row.computed_fee) }}</td>
+                        <td class="px-4 py-3 text-slate-700">Rs {{ "%.2f"|format(row.default_amount) }}</td>
                         <td class="px-4 py-3 text-right">
                             <form method="post" action="/students/{{ student.id }}/enrollments/{{ row.enrollment.id }}/end" class="inline" onsubmit="return confirm('End this enrollment?');">
                                 <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
@@ -118,11 +100,35 @@
                     </tr>
                     {% else %}
                     <tr>
-                        <td colspan="5" class="px-4 py-6 text-center text-slate-400">Not enrolled in any category yet.</td>
+                        <td colspan="3" class="px-4 py-6 text-center text-slate-400">Not enrolled in any category yet.</td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
+            <div class="px-4 py-3 border-t border-slate-200 bg-slate-50 space-y-1">
+                <div class="flex items-center justify-between text-sm">
+                    <span class="text-slate-500">Subtotal</span>
+                    <span class="text-slate-700">Rs {{ "%.2f"|format(fee_subtotal) }}</span>
+                </div>
+                <div class="flex items-center justify-between text-sm">
+                    <span class="text-slate-500">
+                        Discount
+                        {% if student.discount_type.value != "none" %}
+                        ({{ discount_type_labels[student.discount_type] }}{% if student.discount_type.value == "percentage" %}, {{ student.discount_value }}%{% elif student.discount_value is not none %}, Rs {{ student.discount_value }}{% endif %})
+                        {% endif %}
+                    </span>
+                    <span class="text-slate-700">
+                        {% if discount_amount > 0 %}&minus; Rs {{ "%.2f"|format(discount_amount) }}{% else %}Rs 0.00{% endif %}
+                    </span>
+                </div>
+                <div class="flex items-center justify-between text-sm font-semibold pt-1 border-t border-slate-200">
+                    <span class="text-slate-900">Total</span>
+                    <span class="text-slate-900">Rs {{ "%.2f"|format(total_fee) }}/mo</span>
+                </div>
+                <p class="text-xs text-slate-400 pt-1">
+                    One overall discount applies to the combined total, not per category. <a href="/students/{{ student.id }}/edit" class="underline hover:text-slate-600">Edit</a> to change it.
+                </p>
+            </div>
         </div>
 
         <div class="bg-white border border-slate-200 rounded-xl overflow-hidden">
@@ -211,20 +217,6 @@
                         <option value="{{ c.value }}">{{ category_labels[c] }}</option>
                         {% endfor %}
                     </select>
-                </div>
-                <div>
-                    <label class="block text-xs font-medium text-slate-700 mb-1">Discount</label>
-                    <select name="discount_type" class="w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm">
-                        {% for dt in discount_types %}
-                        <option value="{{ dt.value }}">{{ discount_type_labels[dt] }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-xs font-medium text-slate-700 mb-1">Discount value</label>
-                    <input type="text" name="discount_value" placeholder="Rs amount or %"
-                           class="w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm">
-                    <p class="text-xs text-slate-400 mt-1">Leave blank if discount is "None."</p>
                 </div>
                 <button type="submit" class="w-full rounded-md bg-slate-800 text-white text-sm font-medium py-2 hover:bg-slate-700">
                     Enroll

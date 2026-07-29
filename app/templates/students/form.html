@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}{% if student %}Edit {{ student.name }}{% else %}Add Student{% endif %} — Raabta Admin{% endblock %}
+{% block title %}{% if student %}Edit {{ student.name }}{% else %}Add Student{% endif %} — Fee Track Admin{% endblock %}
 {% block content %}
 
 <div class="max-w-lg">
@@ -76,6 +76,27 @@
             </select>
         </div>
 
+        <div>
+            <label class="block text-sm font-medium text-slate-700 mb-2">Overall discount (optional)</label>
+            <div class="flex items-center gap-3">
+                <select name="discount_type" class="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-800 focus:border-slate-800">
+                    {% for dt in discount_types %}
+                    <option value="{{ dt.value }}" {% if submitted_discount_type == dt %}selected{% endif %}>{{ discount_type_labels[dt] }}</option>
+                    {% endfor %}
+                </select>
+                <input
+                    type="text"
+                    name="discount_value"
+                    value="{{ submitted_discount_value }}"
+                    placeholder="Rs amount or %"
+                    class="flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-800 focus:border-slate-800"
+                >
+            </div>
+            <p class="text-xs text-slate-400 mt-2">
+                One discount for this student overall — applied once to their combined fee total across every category they're enrolled in, not separately per category. Ignored if "None" is selected.
+            </p>
+        </div>
+
         {% if not student %}
         <div>
             <label for="enrollment_year" class="block text-sm font-medium text-slate-700 mb-1">Enrollment year</label>
@@ -109,7 +130,6 @@
                 {% endfor %}
             </div>
             <p class="text-xs text-slate-400 mt-2">
-                No discount is applied at creation — set one afterward from the student's page if needed.
                 A category may be rejected if it isn't offered at the selected class level (e.g. School stops at Class 10).
             </p>
         </div>

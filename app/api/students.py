@@ -56,7 +56,8 @@ from app.models.enums import (
 from app.models.fee_cycle import FeeCycle
 from app.models.student import Student
 from app.services.audit import write_audit_log
-from app.services.fees import compute_enrollment_fee, get_band_fee
+from app.services.fee_settings import get_fee_due_day
+from app.services.fees import apply_discount, compute_student_fee_breakdown, get_band_fee, parse_discount_input
 from app.services.qr_token import generate_qr_token
 from app.services.roll_number import generate_roll_number
 
@@ -105,18 +106,17 @@ def build_student_detail_context(
     active_enrollments = [e for e in enrollments if e.status == EnrollmentStatus.ACTIVE]
     past_enrollments = [e for e in enrollments if e.status != EnrollmentStatus.ACTIVE]
 
-    class_offset = student.class_level.class_offset
-
     enrolled_categories = {e.category for e in active_enrollments}
     available_categories = [c for c in FeeCategory if c not in enrolled_categories]
 
-    fee_rows = []
-    total_fee = Decimal("0.00")
-    for e in active_enrollments:
-        default_amount = get_band_fee(session, e.category, class_offset) or Decimal("0.00")
-        fee = compute_enrollment_fee(default_amount, e.discount_type, e.discount_value)
-        total_fee += fee
-        fee_rows.append({"enrollment": e, "default_amount": default_amount, "computed_fee": fee})
+    fee_breakdown = compute_student_fee_breakdown(session, student)
+    fee_rows = [
+        {
+            "enrollment": e,
+            "default_amount": fee_breakdown["category_amounts"].get(e.category, Decimal("0.00")),
+        }
+        for e in active_enrollments
+    ]
 
     fee_cycles = session.exec(
         select(FeeCycle).where(FeeCycle.student_id == student.id).order_by(FeeCycle.period.desc())
@@ -160,10 +160,11 @@ def build_student_detail_context(
         "fee_rows": fee_rows,
         "past_enrollments": past_enrollments,
         "available_categories": available_categories,
-        "discount_types": list(DiscountType),
         "category_labels": CATEGORY_LABELS,
         "discount_type_labels": DISCOUNT_TYPE_LABELS,
-        "total_fee": total_fee,
+        "fee_subtotal": fee_breakdown["subtotal"],
+        "discount_amount": fee_breakdown["discount_amount"],
+        "total_fee": fee_breakdown["final_total"],
         "fee_cycles": fee_cycles,
         "enrollment_error": enrollment_error,
         "show_school_attendance": show_school_attendance,
@@ -291,12 +292,15 @@ async def list_students(
             enrollments_by_student.setdefault(e.student_id, []).append(e)
 
     # Overdue-fee highlighting, scoped to just this page's students now
-    # that the list is paginated. After the 10th of the month, a student
-    # with an actual fee obligation (total_fee > 0) is flagged red if this
-    # month's FeeCycle either doesn't exist yet or exists but isn't paid.
-    # Only applies to active students.
+    # that the list is paginated. After the configured due day of the
+    # month (admin-editable on /settings, defaults to 10 — see
+    # app.services.fee_settings), a student with an actual fee obligation
+    # (total_fee > 0) is flagged red if this month's FeeCycle either
+    # doesn't exist yet or exists but isn't paid. Only applies to active
+    # students.
     today = school_today()
-    is_past_10th = today.day > 10
+    due_day = get_fee_due_day(session)
+    is_past_due_day = today.day > due_day
     current_period = f"{today.year:04d}-{today.month:02d}"
     cycle_by_student: dict = {}
     if page_student_ids:
@@ -312,10 +316,10 @@ async def list_students(
     for student in students:
         class_offset = student.class_level.class_offset
         student_enrollments = enrollments_by_student.get(student.id, [])
-        total_fee = Decimal("0.00")
+        subtotal = Decimal("0.00")
         for e in student_enrollments:
-            band_amount = _band_fee(e.category, class_offset)
-            total_fee += compute_enrollment_fee(band_amount, e.discount_type, e.discount_value)
+            subtotal += _band_fee(e.category, class_offset)
+        total_fee = apply_discount(subtotal, student.discount_type, student.discount_value)
 
         categories_present = {e.category for e in student_enrollments}
         category_code = "".join(CATEGORY_CODE[c] for c in FeeCategory if c in categories_present)
@@ -325,18 +329,18 @@ async def list_students(
         is_overdue = (
             student.is_active
             and total_fee > Decimal("0.00")
-            and is_past_10th
+            and is_past_due_day
             and (cycle is None or cycle.status != FeeCycleStatus.PAID)
         )
         # Fee Status column: plain "is this month's cycle paid?" — distinct
         # from is_overdue above, which additionally requires being past the
-        # 10th and actually owing money before it turns the row red. A
-        # student can show "Unpaid" here before the 10th without the row
-        # being highlighted yet. Per explicit decision: a student with no
-        # active enrollments never gets a FeeCycle generated at all
-        # (fee_cycle_generation.py skips zero-due students outright), so
-        # they show "Unpaid" permanently rather than "N/A" — intentional,
-        # not a bug.
+        # configured due day and actually owing money before it turns the
+        # row red. A student can show "Unpaid" here before the due day
+        # without the row being highlighted yet. Per explicit decision: a
+        # student with no active enrollments never gets a FeeCycle
+        # generated at all (fee_cycle_generation.py skips zero-due students
+        # outright), so they show "Unpaid" permanently rather than "N/A" —
+        # intentional, not a bug.
         fee_status = "Paid" if (cycle is not None and cycle.status == FeeCycleStatus.PAID) else "Unpaid"
         rows.append({
             "student": student,
@@ -360,6 +364,7 @@ async def list_students(
             "page": page,
             "total_pages": total_pages,
             "total_count": total_count,
+            "due_day": due_day,
         },
     )
 
@@ -380,7 +385,11 @@ async def new_student_form(
             "class_levels": class_levels,
             "current_year": datetime.utcnow().year,
             "category_labels": CATEGORY_LABELS,
+            "discount_type_labels": DISCOUNT_TYPE_LABELS,
+            "discount_types": list(DiscountType),
             "selected_categories": [],
+            "submitted_discount_type": DiscountType.NONE,
+            "submitted_discount_value": "",
             "error": None,
         },
     )
@@ -395,6 +404,8 @@ async def create_student(
     class_level_id: int = Form(...),
     enrollment_year: int = Form(...),
     categories: Annotated[List[FeeCategory], Form()] = [],
+    discount_type: DiscountType = Form(DiscountType.NONE),
+    discount_value: str = Form(""),
     session: Session = Depends(get_session),
     admin: AdminUser = Depends(get_current_admin),
 ):
@@ -410,7 +421,11 @@ async def create_student(
                 "class_levels": class_levels,
                 "current_year": datetime.utcnow().year,
                 "category_labels": CATEGORY_LABELS,
+                "discount_type_labels": DISCOUNT_TYPE_LABELS,
+                "discount_types": list(DiscountType),
                 "selected_categories": categories,
+                "submitted_discount_type": discount_type,
+                "submitted_discount_value": discount_value,
                 "error": error,
             },
             status_code=status_code,
@@ -420,6 +435,13 @@ async def create_student(
         roll_number = generate_roll_number(
             session, class_level_id=class_level_id, enrollment_year=enrollment_year
         )
+    except ValueError as exc:
+        return _redisplay(str(exc))
+
+    # One overall discount per student, set here at creation time (or
+    # later via the edit form) — not per category. See app/services/fees.py.
+    try:
+        parsed_discount_value = parse_discount_input(discount_type, discount_value)
     except ValueError as exc:
         return _redisplay(str(exc))
 
@@ -446,6 +468,8 @@ async def create_student(
         qr_code=generate_qr_token(),
         class_level_id=class_level_id,
         is_active=True,
+        discount_type=discount_type,
+        discount_value=parsed_discount_value,
     )
     session.add(student)
     session.flush()  # need student.id for the enrollments below
@@ -455,8 +479,6 @@ async def create_student(
         enrollment = Enrollment(
             student_id=student.id,
             category=category,
-            discount_type=DiscountType.NONE,
-            discount_value=None,
             status=EnrollmentStatus.ACTIVE,
             created_by_id=admin.id,
         )
@@ -476,8 +498,6 @@ async def create_student(
                 after_value={
                     "student_id": enrollment.student_id,
                     "category": enrollment.category.value,
-                    "discount_type": enrollment.discount_type.value,
-                    "discount_value": None,
                     "status": enrollment.status.value,
                 },
             )
@@ -520,7 +540,13 @@ async def edit_student_form(
             "class_levels": class_levels,
             "current_year": datetime.utcnow().year,
             "category_labels": CATEGORY_LABELS,
+            "discount_type_labels": DISCOUNT_TYPE_LABELS,
+            "discount_types": list(DiscountType),
             "selected_categories": [],
+            "submitted_discount_type": student.discount_type,
+            "submitted_discount_value": (
+                str(student.discount_value) if student.discount_value is not None else ""
+            ),
             "error": None,
         },
     )
@@ -529,10 +555,13 @@ async def edit_student_form(
 @router.post("/{student_id}")
 async def update_student(
     student_id: int,
+    request: Request,
     name: str = Form(...),
     father_name: str = Form(...),
     parent_whatsapp: str = Form(...),
     class_level_id: int = Form(...),
+    discount_type: DiscountType = Form(DiscountType.NONE),
+    discount_value: str = Form(""),
     session: Session = Depends(get_session),
     admin: AdminUser = Depends(get_current_admin),
 ):
@@ -540,10 +569,35 @@ async def update_student(
     if not student:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Student not found.")
 
+    try:
+        parsed_discount_value = parse_discount_input(discount_type, discount_value)
+    except ValueError as exc:
+        class_levels = session.exec(select(ClassLevel).order_by(ClassLevel.class_offset)).all()
+        return templates.TemplateResponse(
+            "students/form.html",
+            {
+                "request": request,
+                "admin": admin,
+                "student": student,
+                "class_levels": class_levels,
+                "current_year": datetime.utcnow().year,
+                "category_labels": CATEGORY_LABELS,
+                "discount_type_labels": DISCOUNT_TYPE_LABELS,
+                "discount_types": list(DiscountType),
+                "selected_categories": [],
+                "submitted_discount_type": discount_type,
+                "submitted_discount_value": discount_value,
+                "error": str(exc),
+            },
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+
     student.name = name.strip()
     student.father_name = father_name.strip()
     student.parent_whatsapp = parent_whatsapp.strip()
     student.class_level_id = class_level_id
+    student.discount_type = discount_type
+    student.discount_value = parsed_discount_value
     session.add(student)
     session.commit()
     return RedirectResponse(url="/students", status_code=status.HTTP_303_SEE_OTHER)

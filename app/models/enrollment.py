@@ -1,12 +1,16 @@
+"""Discount used to live here (discount_type/discount_value per
+student-category pairing) — moved to Student as a single overall discount
+per student instead, applied once across all of a student's active
+enrollments. See app.models.student and app.services.fees."""
+
 from datetime import datetime
-from decimal import Decimal
 from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy import Column, Index, text
 from sqlmodel import Field, Relationship, SQLModel
 
 from app.models._enum_utils import str_enum_type
-from app.models.enums import DiscountType, EnrollmentStatus, FeeCategory
+from app.models.enums import EnrollmentStatus, FeeCategory
 
 if TYPE_CHECKING:
     from app.models.student import Student
@@ -33,11 +37,6 @@ class Enrollment(SQLModel, table=True):
         sa_column=Column(str_enum_type(FeeCategory), nullable=False, index=True)
     )
 
-    discount_type: DiscountType = Field(
-        default=DiscountType.NONE,
-        sa_column=Column(str_enum_type(DiscountType), nullable=False),
-    )
-    discount_value: Optional[Decimal] = Field(default=None, max_digits=10, decimal_places=2)
     status: EnrollmentStatus = Field(
         default=EnrollmentStatus.ACTIVE,
         sa_column=Column(str_enum_type(EnrollmentStatus), nullable=False, index=True),

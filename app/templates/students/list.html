@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Students — Raabta Admin{% endblock %}
+{% block title %}Students — Fee Track Admin{% endblock %}
 {% block content %}
 
 <div class="flex items-center justify-between mb-6">
@@ -17,7 +17,7 @@
     </div>
     <div>
         <label class="block text-xs text-slate-500 mb-1">Group</label>
-        <select name="group" class="rounded border border-slate-300 text-sm px-2 py-1.5">
+        <select name="group" onchange="this.form.submit()" class="rounded border border-slate-300 text-sm px-2 py-1.5">
             <option value="" {% if not group %}selected{% endif %}>All</option>
             <option value="school" {% if group == "school" %}selected{% endif %}>School</option>
             <option value="academy" {% if group == "academy" %}selected{% endif %}>Academy</option>
@@ -25,7 +25,7 @@
     </div>
     <div>
         <label class="block text-xs text-slate-500 mb-1">Class</label>
-        <select name="class_level_id" class="rounded border border-slate-300 text-sm px-2 py-1.5">
+        <select name="class_level_id" onchange="this.form.submit()" class="rounded border border-slate-300 text-sm px-2 py-1.5">
             <option value="">All classes</option>
             {% for cl in class_levels %}
             <option value="{{ cl.id }}" {% if class_level_id == cl.id %}selected{% endif %}>{{ cl.name }}</option>
@@ -57,32 +57,32 @@
             {% for row in rows %}
             {% set student = row.student %}
             <tr class="{% if not student.is_active %}opacity-50{% elif row.is_overdue %}bg-red-50{% endif %}">
-                <td class="px-4 py-3 font-mono text-slate-700">{{ student.roll_number }}</td>
-                <td class="px-4 py-3 text-slate-900">{{ student.name }}</td>
-                <td class="px-4 py-3 text-slate-500">{{ student.father_name }}</td>
-                <td class="px-4 py-3 text-slate-500">{{ student.class_level.name }}</td>
-                <td class="px-4 py-3">
+                <td class="px-4 py-3 align-top font-mono text-slate-700">{{ student.roll_number }}</td>
+                <td class="px-4 py-3 align-top text-slate-900">{{ student.name }}</td>
+                <td class="px-4 py-3 align-top text-slate-500">{{ student.father_name }}</td>
+                <td class="px-4 py-3 align-top text-slate-500">{{ student.class_level.name }}</td>
+                <td class="px-4 py-3 align-top">
                     {% if row.category_code %}
                     <span class="font-mono text-xs font-semibold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded" title="{{ row.category_tooltip }}">{{ row.category_code }}</span>
                     {% else %}
                     <span class="text-xs text-slate-300">—</span>
                     {% endif %}
                 </td>
-                <td class="px-4 py-3 text-slate-500">{{ student.parent_whatsapp }}</td>
-                <td class="px-4 py-3 {% if row.is_overdue %}text-red-700 font-medium{% else %}text-slate-700{% endif %}">
+                <td class="px-4 py-3 align-top text-slate-500 whitespace-nowrap">{{ student.parent_whatsapp }}</td>
+                <td class="px-4 py-3 align-top {% if row.is_overdue %}text-red-700 font-medium{% else %}text-slate-700{% endif %}">
                     Rs {{ "%.2f"|format(row.total_fee) }}
                     {% if row.is_overdue %}
-                    <span class="text-xs text-red-600 ml-1" title="Unpaid for the current period, past the 10th">⚠</span>
+                    <span class="text-xs text-red-600 ml-1 whitespace-nowrap" title="Unpaid for the current period, past day {{ due_day }} of the month">⚠</span>
                     {% endif %}
                 </td>
-                <td class="px-4 py-3">
+                <td class="px-4 py-3 align-top">
                     {% if row.fee_status == "Paid" %}
                     <span class="text-xs font-medium text-green-700 bg-green-50 px-2 py-1 rounded">Paid</span>
                     {% else %}
                     <span class="text-xs font-medium text-red-700 bg-red-50 px-2 py-1 rounded">Unpaid</span>
                     {% endif %}
                 </td>
-                <td class="px-4 py-3 text-right space-x-3">
+                <td class="px-4 py-3 align-top text-right space-x-3">
                     <a href="/students/{{ student.id }}" class="text-slate-600 hover:text-slate-900">View</a>
                     <a href="/students/{{ student.id }}/edit" class="text-slate-600 hover:text-slate-900">Edit</a>
                     {% if student.is_active %}

@@ -1,121 +1,68 @@
 {% extends "base.html" %}
-{% block title %}Attendance Report — Raabta Admin{% endblock %}
+{% block title %}Attendance Reports — Fee Track Admin{% endblock %}
 {% block content %}
 
-<h1 class="text-xl font-semibold text-slate-900 mb-1">Attendance report</h1>
-<p class="text-sm text-slate-500 mb-6">Filter by date range, session, and name or ID.</p>
+<a href="/reports" class="text-sm text-slate-500 hover:text-slate-800 mb-4 inline-block">&larr; Back to Reports</a>
+<h1 class="text-xl font-semibold text-slate-900 mb-1">Attendance Reports</h1>
+<p class="text-sm text-slate-500 mb-6">
+    Last {{ window_size }} academic days (Sundays excluded) of School attendance per student. Late counts as present in the percentage.
+</p>
 
 <form method="get" action="/reports/attendance" class="bg-white border border-slate-200 rounded-xl p-4 mb-6 flex flex-wrap items-end gap-4">
-    <div>
-        <label class="block text-xs text-slate-500 mb-1">From</label>
-        <input type="date" name="start_date" value="{{ start_date }}"
-               class="rounded border border-slate-300 text-sm px-2 py-1.5">
-    </div>
-    <div>
-        <label class="block text-xs text-slate-500 mb-1">To</label>
-        <input type="date" name="end_date" value="{{ end_date }}"
-               class="rounded border border-slate-300 text-sm px-2 py-1.5">
-    </div>
-    <div>
-        <label class="block text-xs text-slate-500 mb-1">Session</label>
-        <select name="session" class="rounded border border-slate-300 text-sm px-2 py-1.5">
-            <option value="" {% if not attendance_session %}selected{% endif %}>All sessions</option>
-            {% for s in sessions %}
-            <option value="{{ s.value }}" {% if attendance_session == s %}selected{% endif %}>{{ session_labels[s] }}</option>
-            {% endfor %}
-        </select>
-    </div>
-    <div class="flex-1 min-w-[160px]">
-        <label class="block text-xs text-slate-500 mb-1">Name or ID</label>
-        <input type="text" name="search" value="{{ search }}" placeholder="Search student or teacher..."
+    <div class="flex-1 min-w-[220px]">
+        <label class="block text-xs text-slate-500 mb-1">Search</label>
+        <input type="text" name="search" value="{{ search }}" placeholder="Roll number or name..."
                class="w-full rounded border border-slate-300 text-sm px-2 py-1.5">
     </div>
-    <button type="submit" class="text-sm bg-slate-800 text-white rounded-md px-4 py-1.5 hover:bg-slate-700">
-        Filter
+    <button type="submit" class="rounded-md bg-slate-800 text-white text-sm font-medium px-4 py-1.5 hover:bg-slate-700">
+        Search
     </button>
-    <a href="/reports/attendance" class="text-sm text-slate-500 hover:text-slate-800 underline">Reset</a>
 </form>
 
-<h2 class="text-sm font-semibold text-slate-700 mb-2">Students ({{ student_rows|length }})</h2>
-<div class="bg-white border border-slate-200 rounded-xl overflow-hidden mb-8">
-    <table class="w-full text-sm">
-        <thead class="bg-slate-50 border-b border-slate-200 text-left text-slate-500">
-            <tr>
-                <th class="px-4 py-3 font-medium">Roll #</th>
-                <th class="px-4 py-3 font-medium">Name</th>
-                <th class="px-4 py-3 font-medium">Class</th>
-                <th class="px-4 py-3 font-medium">Date</th>
-                <th class="px-4 py-3 font-medium">Session</th>
-                <th class="px-4 py-3 font-medium">Arrival</th>
-                <th class="px-4 py-3 font-medium">Status</th>
-            </tr>
-        </thead>
-        <tbody class="divide-y divide-slate-100">
-            {% for record, student in student_rows %}
-            <tr>
-                <td class="px-4 py-3 text-slate-900">{{ student.roll_number }}</td>
-                <td class="px-4 py-3 text-slate-900">{{ student.name }}</td>
-                <td class="px-4 py-3 text-slate-500">{{ student.class_level.name }}</td>
-                <td class="px-4 py-3 text-slate-500">{{ record.scan_date }}</td>
-                <td class="px-4 py-3 text-slate-500">{{ session_labels[record.session] }}</td>
-                <td class="px-4 py-3 text-slate-500">{{ record.arrival_time.strftime('%H:%M') }}</td>
-                <td class="px-4 py-3">
-                    {% if record.punctuality_status is none %}
-                        <span class="text-xs text-sky-700 bg-sky-50 border border-sky-200 rounded-full px-2 py-0.5">Logged</span>
-                    {% elif record.punctuality_status.value == 'late' %}
-                        <span class="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5">Late</span>
-                    {% else %}
-                        <span class="text-xs text-green-700 bg-green-50 border border-green-200 rounded-full px-2 py-0.5">On time</span>
-                    {% endif %}
-                </td>
-            </tr>
-            {% else %}
-            <tr>
-                <td colspan="7" class="px-4 py-6 text-center text-slate-400">No student attendance in this range.</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+{% if truncated %}
+<div class="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-4 py-2 mb-6">
+    More than 10 students matched — showing the first 10. Narrow your search to see a specific student.
 </div>
+{% endif %}
 
-<h2 class="text-sm font-semibold text-slate-700 mb-2">Teachers ({{ teacher_rows|length }})</h2>
-<div class="bg-white border border-slate-200 rounded-xl overflow-hidden">
-    <table class="w-full text-sm">
-        <thead class="bg-slate-50 border-b border-slate-200 text-left text-slate-500">
-            <tr>
-                <th class="px-4 py-3 font-medium">Staff ID</th>
-                <th class="px-4 py-3 font-medium">Name</th>
-                <th class="px-4 py-3 font-medium">Date</th>
-                <th class="px-4 py-3 font-medium">Session</th>
-                <th class="px-4 py-3 font-medium">Arrival</th>
-                <th class="px-4 py-3 font-medium">Status</th>
-            </tr>
-        </thead>
-        <tbody class="divide-y divide-slate-100">
-            {% for record, teacher in teacher_rows %}
-            <tr>
-                <td class="px-4 py-3 text-slate-900">{{ teacher.staff_id }}</td>
-                <td class="px-4 py-3 text-slate-900">{{ teacher.name }}</td>
-                <td class="px-4 py-3 text-slate-500">{{ record.scan_date }}</td>
-                <td class="px-4 py-3 text-slate-500">{{ session_labels[record.session] }}</td>
-                <td class="px-4 py-3 text-slate-500">{{ record.arrival_time.strftime('%H:%M') }}</td>
-                <td class="px-4 py-3">
-                    {% if record.punctuality_status is none %}
-                        <span class="text-xs text-sky-700 bg-sky-50 border border-sky-200 rounded-full px-2 py-0.5">Logged</span>
-                    {% elif record.punctuality_status.value == 'late' %}
-                        <span class="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5">Late</span>
-                    {% else %}
-                        <span class="text-xs text-green-700 bg-green-50 border border-green-200 rounded-full px-2 py-0.5">On time</span>
-                    {% endif %}
-                </td>
-            </tr>
-            {% else %}
-            <tr>
-                <td colspan="6" class="px-4 py-6 text-center text-slate-400">No teacher attendance in this range.</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+{% if not search %}
+<p class="text-sm text-slate-400">Search for a student above to view their attendance report.</p>
+{% elif not reports %}
+<p class="text-sm text-slate-400">No students match "{{ search }}".</p>
+{% endif %}
+
+{% for report in reports %}
+{% set student = report.student %}
+<div class="bg-white border border-slate-200 rounded-xl overflow-hidden mb-6">
+    <div class="px-4 py-3 border-b border-slate-200 flex items-center justify-between {% if not student.is_active %}opacity-50{% endif %}">
+        <div>
+            <a href="/students/{{ student.id }}" class="text-slate-900 font-medium hover:underline">{{ student.name }}</a>
+            <span class="text-xs text-slate-400 ml-2 font-mono">{{ student.roll_number }}</span>
+            {% if not student.is_active %}<span class="text-xs text-red-500 ml-2">Inactive</span>{% endif %}
+        </div>
+        <div class="text-xs text-slate-400">{{ student.class_level.name }}</div>
+    </div>
+
+    <div class="px-4 py-3 border-b border-slate-200 flex items-center gap-6 bg-slate-50">
+        <div class="text-sm"><span class="font-semibold text-slate-900">{{ report.present_count }}</span> <span class="text-slate-500">Present</span></div>
+        <div class="text-sm"><span class="font-semibold text-amber-700">{{ report.late_count }}</span> <span class="text-slate-500">Late</span></div>
+        <div class="text-sm"><span class="font-semibold text-red-700">{{ report.absent_count }}</span> <span class="text-slate-500">Absent</span></div>
+        <div class="text-sm ml-auto"><span class="font-semibold text-slate-900">{{ report.percentage }}%</span> <span class="text-slate-500">attendance</span></div>
+    </div>
+
+    <div class="p-4 grid grid-cols-5 sm:grid-cols-10 gap-1.5">
+        {% for row in report.day_rows %}
+        <div class="text-center rounded px-1 py-1.5
+            {% if row.status == 'Present' %}bg-green-50 text-green-800
+            {% elif row.status == 'Late' %}bg-amber-50 text-amber-800
+            {% else %}bg-red-50 text-red-800{% endif %}"
+            title="{{ row.day.strftime('%d %b %Y') }} ({{ row.weekday }}) — {{ row.status }}">
+            <div class="text-[10px] leading-tight">{{ row.day.strftime('%d %b') }}</div>
+            <div class="text-[10px] font-medium leading-tight">{{ row.status[0] }}</div>
+        </div>
+        {% endfor %}
+    </div>
 </div>
+{% endfor %}
 
 {% endblock %}

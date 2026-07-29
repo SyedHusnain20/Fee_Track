@@ -29,7 +29,7 @@ def _redirect_to_login() -> HTTPException:
 
 async def get_current_admin(
     session: Session = Depends(get_session),
-    raabta_session: Optional[str] = Cookie(default=None, alias=SESSION_COOKIE_NAME),
+    fee_track_session: Optional[str] = Cookie(default=None, alias=SESSION_COOKIE_NAME),
 ) -> AdminUser:
     """Resolve the session cookie into a live, active AdminUser.
 
@@ -38,10 +38,10 @@ async def get_current_admin(
     takes effect on that admin's very next request, not just their next
     login attempt.
     """
-    if raabta_session is None:
+    if fee_track_session is None:
         raise _redirect_to_login()
 
-    admin_session = session.get(AdminSession, raabta_session)
+    admin_session = session.get(AdminSession, fee_track_session)
     # Naive UTC comparison, matching datetime.utcnow() used everywhere else
     # in this codebase (see AdminSession/security.py comments).
     if admin_session is None or admin_session.expires_at < datetime.utcnow():

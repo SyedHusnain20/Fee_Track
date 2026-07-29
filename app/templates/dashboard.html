@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Dashboard — Raabta Admin{% endblock %}
+{% block title %}Dashboard — Fee Track Admin{% endblock %}
 {% block content %}
 
 <h1 class="text-xl font-semibold text-slate-900 mb-1">Welcome, {{ admin.name }}</h1>
@@ -34,6 +34,96 @@
         <div class="text-lg font-semibold text-white">Open kiosk ↗</div>
         <div class="text-sm text-slate-400 mt-1">Attendance scan page — bookmark this on the gate device</div>
     </a>
+</div>
+
+{% if cycles_generated_count == 0 %}
+<div class="mt-6 text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-4 py-3">
+    No fee cycles have been generated for <strong>{{ current_period }}</strong> yet.
+    <a href="/fee-cycles" class="underline font-medium">Generate them on the Fee Cycles page</a>.
+</div>
+{% endif %}
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8">
+
+    <div>
+        <h2 class="text-sm font-semibold text-slate-700 mb-3">Today's attendance</h2>
+        <div class="bg-white border border-slate-200 rounded-xl divide-y divide-slate-100">
+            <div class="flex items-center justify-between px-4 py-3">
+                <span class="text-sm text-slate-600">School students scanned</span>
+                <span class="text-sm font-semibold text-slate-900">{{ school_scanned_today }} / {{ active_school_students }}</span>
+            </div>
+            <div class="flex items-center justify-between px-4 py-3">
+                <span class="text-sm text-slate-600">Academy students scanned</span>
+                <span class="text-sm font-semibold text-slate-900">{{ academy_scanned_today }} / {{ active_academy_students }}</span>
+            </div>
+            <div class="flex items-center justify-between px-4 py-3">
+                <span class="text-sm text-slate-600">Teachers checked in</span>
+                <span class="text-sm font-semibold text-slate-900">{{ teachers_scanned_today }} / {{ active_teachers }}</span>
+            </div>
+        </div>
+
+        <h2 class="text-sm font-semibold text-slate-700 mb-3 mt-6">This month's fees — {{ current_period }}</h2>
+        <div class="bg-white border border-slate-200 rounded-xl divide-y divide-slate-100">
+            <div class="flex items-center justify-between px-4 py-3">
+                <span class="text-sm text-slate-600">Collected</span>
+                <span class="text-sm font-semibold text-green-700">Rs {{ "%.2f"|format(fee_collected) }}</span>
+            </div>
+            <div class="flex items-center justify-between px-4 py-3">
+                <span class="text-sm text-slate-600">Outstanding</span>
+                <span class="text-sm font-semibold text-slate-900">Rs {{ "%.2f"|format(fee_outstanding) }} ({{ unpaid_count }} student{{ "s" if unpaid_count != 1 else "" }})</span>
+            </div>
+            <div class="flex items-center justify-between px-4 py-3">
+                <span class="text-sm text-slate-600">Overdue (past day {{ due_day }})</span>
+                {% if overdue_count %}
+                <a href="/students" class="text-sm font-semibold text-red-700 hover:underline">{{ overdue_count }} student{{ "s" if overdue_count != 1 else "" }}</a>
+                {% else %}
+                <span class="text-sm font-semibold text-slate-400">None{{ " yet" if not is_past_due_day else "" }}</span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div>
+        <h2 class="text-sm font-semibold text-slate-700 mb-3">Last 10 kiosk scans</h2>
+        <div class="bg-white border border-slate-200 rounded-xl overflow-hidden">
+            <table class="w-full text-sm">
+                <thead class="bg-slate-50 border-b border-slate-200 text-left text-slate-500">
+                    <tr>
+                        <th class="px-4 py-2 font-medium">Name</th>
+                        <th class="px-4 py-2 font-medium">Session</th>
+                        <th class="px-4 py-2 font-medium">Time</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    {% for scan in recent_scans %}
+                    <tr>
+                        <td class="px-4 py-2 align-top">
+                            <div class="text-slate-900">{{ scan.name }}</div>
+                            <div class="text-xs text-slate-400">{{ scan.person_type }} · {{ scan.identifier }}</div>
+                        </td>
+                        <td class="px-4 py-2 align-top text-slate-600">
+                            {{ scan.session_label }}
+                            {% if scan.punctuality_label %}
+                            <div class="text-xs {% if scan.punctuality_label == 'Late' %}text-red-600{% else %}text-slate-400{% endif %}">{{ scan.punctuality_label }}</div>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-2 align-top text-slate-500 whitespace-nowrap">
+                            {{ scan.arrival_time.strftime('%I:%M %p') }}
+                            {% if scan.scan_date != today %}
+                            <div class="text-xs text-slate-400">{{ scan.scan_date.strftime('%b %d') }}</div>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="3" class="px-4 py-6 text-center text-slate-400">No scans yet.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
 </div>
 
 {% endblock %}

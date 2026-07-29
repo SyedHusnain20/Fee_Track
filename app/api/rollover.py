@@ -11,6 +11,10 @@ roll_number is permanent and never changes. Enrollment and FeeCycle are
 completely untouched by rollover — both continue as-is into the new year;
 if an Enrollment needs to end/renew, that's a separate admin action via
 students.py/enrollments.py, not something rollover does automatically.
+
+Restricted to require_super_admin — only reachable via /settings, and
+only visible in the navbar to super admins, per explicit access-control
+decision (same treatment as /settings and /category-fees).
 """
 
 from typing import Optional
@@ -20,7 +24,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, select
 
-from app.api.deps import get_current_admin
+from app.api.deps import require_super_admin
 from app.core.database import get_session
 from app.models.admin_user import AdminUser
 from app.models.class_level import ClassLevel
@@ -78,7 +82,7 @@ def _build_preview(session: Session) -> dict:
 async def rollover_preview(
     request: Request,
     session: Session = Depends(get_session),
-    admin: AdminUser = Depends(get_current_admin),
+    admin: AdminUser = Depends(require_super_admin),
 ):
     preview = _build_preview(session)
     return templates.TemplateResponse(
@@ -91,7 +95,7 @@ async def rollover_preview(
 async def rollover_execute(
     request: Request,
     session: Session = Depends(get_session),
-    admin: AdminUser = Depends(get_current_admin),
+    admin: AdminUser = Depends(require_super_admin),
 ):
     class_levels = session.exec(select(ClassLevel).order_by(ClassLevel.class_offset)).all()
     next_level = _next_level_map(class_levels)

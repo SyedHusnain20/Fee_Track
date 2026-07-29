@@ -1,6 +1,11 @@
+from decimal import Decimal
 from typing import TYPE_CHECKING, List, Optional
 
+from sqlalchemy import Column
 from sqlmodel import Field, Relationship, SQLModel
+
+from app.models._enum_utils import str_enum_type
+from app.models.enums import DiscountType
 
 if TYPE_CHECKING:
     from app.models.attendance_record import AttendanceRecord
@@ -20,6 +25,19 @@ class Student(SQLModel, table=True):
     qr_code: str = Field(unique=True, index=True)
     class_level_id: int = Field(foreign_key="class_level.id", index=True)
     is_active: bool = Field(default=True)
+
+    # One overall discount per student, set at student-add time (or later
+    # via edit) and applied once to the combined total across all of a
+    # student's active enrollments — not separately per category as it
+    # used to be. Previously this lived on Enrollment (one discount per
+    # student-category pairing); moved here so a student has exactly one
+    # discount regardless of how many categories they're enrolled in. See
+    # app.services.fees.
+    discount_type: DiscountType = Field(
+        default=DiscountType.NONE,
+        sa_column=Column(str_enum_type(DiscountType), nullable=False),
+    )
+    discount_value: Optional[Decimal] = Field(default=None, max_digits=10, decimal_places=2)
 
     class_level: "ClassLevel" = Relationship(back_populates="students")
     enrollments: List["Enrollment"] = Relationship(back_populates="student")

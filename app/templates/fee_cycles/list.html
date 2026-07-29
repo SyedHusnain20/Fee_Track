@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Fee Cycles — Raabta Admin{% endblock %}
+{% block title %}Fee Cycles — Fee Track Admin{% endblock %}
 {% block content %}
 
 <h1 class="text-xl font-semibold text-slate-900 mb-1">Fee cycles</h1>
@@ -12,6 +12,11 @@
         <div>
             <label class="block text-xs font-medium text-slate-700 mb-1">View period</label>
             <input type="month" name="period" value="{{ period }}"
+                   class="rounded-md border border-slate-300 px-2 py-1.5 text-sm">
+        </div>
+        <div>
+            <label class="block text-xs font-medium text-slate-700 mb-1">Search</label>
+            <input type="text" name="search" value="{{ search }}" placeholder="Roll number or name..."
                    class="rounded-md border border-slate-300 px-2 py-1.5 text-sm">
         </div>
         <button type="submit" class="rounded-md border border-slate-300 text-sm px-3 py-1.5 hover:bg-slate-50">Go</button>
@@ -36,16 +41,16 @@
 
 <div class="grid grid-cols-3 gap-4 mb-6 max-w-2xl">
     <div class="bg-white border border-slate-200 rounded-xl p-4">
-        <div class="text-2xl font-semibold text-slate-900">Rs {{ "%.0f"|format(total_revenue) }}</div>
-        <div class="text-xs text-slate-500 mt-1">Total revenue ({{ cycles|length }} cycle{{ "s" if cycles|length != 1 else "" }})</div>
+        <div class="text-2xl font-semibold text-slate-900">{{ total_count }}</div>
+        <div class="text-xs text-slate-500 mt-1">Student{{ "s" if total_count != 1 else "" }} this period</div>
     </div>
     <div class="bg-white border border-slate-200 rounded-xl p-4">
-        <div class="text-2xl font-semibold text-green-700">Rs {{ "%.0f"|format(total_collected) }}</div>
-        <div class="text-xs text-slate-500 mt-1">Fees collected</div>
+        <div class="text-2xl font-semibold text-green-700">{{ paid_count }}</div>
+        <div class="text-xs text-slate-500 mt-1">Paid</div>
     </div>
     <div class="bg-white border border-slate-200 rounded-xl p-4">
-        <div class="text-2xl font-semibold {{ 'text-amber-700' if total_outstanding > 0 else 'text-slate-900' }}">Rs {{ "%.0f"|format(total_outstanding) }}</div>
-        <div class="text-xs text-slate-500 mt-1">Fees due</div>
+        <div class="text-2xl font-semibold {{ 'text-amber-700' if remaining_count > 0 else 'text-slate-900' }}">{{ remaining_count }}</div>
+        <div class="text-xs text-slate-500 mt-1">Remaining</div>
     </div>
 </div>
 
@@ -82,11 +87,13 @@
                     <a href="/fee-cycles/{{ cycle.id }}/invoice" target="_blank" class="text-xs text-slate-600 hover:text-slate-900 underline mr-3">Invoice</a>
                     <form method="post" action="/fee-cycles/{{ cycle.id }}/mark-unpaid" class="inline">
                         <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
+                        <input type="hidden" name="next" value="/fee-cycles?period={{ period }}{% if search %}&search={{ search|urlencode }}{% endif %}">
                         <button type="submit" class="text-xs text-slate-600 hover:text-slate-900 underline">Mark unpaid</button>
                     </form>
                     {% else %}
                     <form method="post" action="/fee-cycles/{{ cycle.id }}/mark-paid" class="inline">
                         <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
+                        <input type="hidden" name="next" value="/fee-cycles?period={{ period }}{% if search %}&search={{ search|urlencode }}{% endif %}">
                         <button type="submit" class="text-xs text-green-700 hover:text-green-900 underline">Mark paid</button>
                     </form>
                     {% endif %}
@@ -94,7 +101,13 @@
             </tr>
             {% else %}
             <tr>
-                <td colspan="6" class="px-4 py-8 text-center text-slate-400">No fee cycles generated for {{ period }} yet.</td>
+                <td colspan="6" class="px-4 py-8 text-center text-slate-400">
+                    {% if search %}
+                    No students matching "{{ search }}" have a fee cycle for {{ period }}.
+                    {% else %}
+                    No fee cycles generated for {{ period }} yet.
+                    {% endif %}
+                </td>
             </tr>
             {% endfor %}
         </tbody>
