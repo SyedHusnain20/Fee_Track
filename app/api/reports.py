@@ -89,6 +89,25 @@ def _last_n_academic_days(today: date, n: int) -> list[date]:
     return days
 
 
+def _group_into_weeks(day_rows: list[dict]) -> list[list[Optional[dict]]]:
+    """Arranges day_rows (oldest first) into Monday-Saturday week strips for
+    the calendar-style grid. Each returned week is a fixed 6-slot list
+    (index 0=Mon ... 5=Sat); slots with no data in the window (e.g. the
+    partial first/last week at the edge of the 30-day range) are None so
+    the grid still renders a clean Mon..Sat row instead of drifting."""
+    weeks: dict[tuple, list[Optional[dict]]] = {}
+    order: list[tuple] = []
+    for row in day_rows:
+        d = row["day"]
+        monday = d - timedelta(days=d.weekday())  # Monday of that day's week
+        key = (monday.isocalendar()[0], monday.isocalendar()[1])
+        if key not in weeks:
+            weeks[key] = [None] * 6
+            order.append(key)
+        weeks[key][d.weekday()] = row
+    return [weeks[key] for key in order]
+
+
 @router.get("", response_class=HTMLResponse)
 async def reports_index(
     request: Request,
@@ -176,30 +195,48 @@ async def attendance_report(
     if search_term:
         students, truncated = _find_students(session, search_term)
         for student in students:
+            # Pull BOTH School and Academy scans in the window. Previously
+            # this only fetched session == SCHOOL, so any student whose
+            # gate scans are logged under Academy (coaching/english/
+            # computer) had zero matching records and every day rendered
+            # "Absent" even though they scanned in daily — Academy just
+            # has no punctuality judgment, it isn't "no attendance."
             records = session.exec(
                 select(AttendanceRecord).where(
                     AttendanceRecord.student_id == student.id,
-                    AttendanceRecord.session == AttendanceSession.SCHOOL,
                     AttendanceRecord.scan_date.in_(day_set),
                 )
             ).all()
-            record_by_day = {r.scan_date: r for r in records}
+            # A day can have a School row, an Academy row, or both (a
+            # student enrolled in both). School's punctuality verdict
+            # wins when both exist, since Academy never carries a
+            # late/on-time judgment at all.
+            school_by_day = {
+                r.scan_date: r for r in records if r.session == AttendanceSession.SCHOOL
+            }
+            academy_by_day = {
+                r.scan_date: r for r in records if r.session == AttendanceSession.ACADEMY
+            }
 
             day_rows = []
             present_count = 0
             late_count = 0
             absent_count = 0
             for day in academic_days:
-                record = record_by_day.get(day)
-                if record is None:
-                    status_label = "Absent"
-                    absent_count += 1
-                elif record.punctuality_status == PunctualityStatus.LATE:
-                    status_label = "Late"
-                    late_count += 1
-                else:
+                school_record = school_by_day.get(day)
+                if school_record is not None:
+                    if school_record.punctuality_status == PunctualityStatus.LATE:
+                        status_label = "Late"
+                        late_count += 1
+                    else:
+                        status_label = "Present"
+                        present_count += 1
+                elif day in academy_by_day:
                     status_label = "Present"
                     present_count += 1
+                else:
+                    status_label = "Absent"
+                    absent_count += 1
                 day_rows.append({
                     "day": day,
                     "weekday": day.strftime("%a"),
@@ -212,6 +249,7 @@ async def attendance_report(
             reports.append({
                 "student": student,
                 "day_rows": day_rows,
+                "weeks": _group_into_weeks(list(reversed(day_rows))),
                 "present_count": present_count,
                 "late_count": late_count,
                 "absent_count": absent_count,

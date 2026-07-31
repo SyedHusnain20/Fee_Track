@@ -50,15 +50,28 @@
         <div class="text-sm ml-auto"><span class="font-semibold text-slate-900">{{ report.percentage }}%</span> <span class="text-slate-500">attendance</span></div>
     </div>
 
-    <div class="p-4 grid grid-cols-5 sm:grid-cols-10 gap-1.5">
-        {% for row in report.day_rows %}
-        <div class="text-center rounded px-1 py-1.5
-            {% if row.status == 'Present' %}bg-green-50 text-green-800
-            {% elif row.status == 'Late' %}bg-amber-50 text-amber-800
-            {% else %}bg-red-50 text-red-800{% endif %}"
-            title="{{ row.day.strftime('%d %b %Y') }} ({{ row.weekday }}) — {{ row.status }}">
-            <div class="text-[10px] leading-tight">{{ row.day.strftime('%d %b') }}</div>
-            <div class="text-[10px] font-medium leading-tight">{{ row.status[0] }}</div>
+    <div class="p-4 overflow-x-auto">
+        <div class="grid grid-cols-6 gap-1.5 min-w-[420px] mb-1.5">
+            {% for label in ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] %}
+            <div class="text-center text-[10px] font-medium text-slate-400 uppercase tracking-wide">{{ label }}</div>
+            {% endfor %}
+        </div>
+        {% for week in report.weeks %}
+        <div class="grid grid-cols-6 gap-1.5 min-w-[420px] {% if not loop.last %}mb-1.5{% endif %}">
+            {% for row in week %}
+            {% if row is none %}
+            <div class="rounded px-1 py-1.5 bg-slate-50"></div>
+            {% else %}
+            <div class="text-center rounded px-1 py-1.5
+                {% if row.status == 'Present' %}bg-green-50 text-green-800
+                {% elif row.status == 'Late' %}bg-amber-50 text-amber-800
+                {% else %}bg-red-50 text-red-800{% endif %}"
+                title="{{ row.day.strftime('%d %b %Y') }} ({{ row.weekday }}) — {{ row.status }}">
+                <div class="text-[10px] leading-tight">{{ row.day.strftime('%d %b') }}</div>
+                <div class="text-[10px] font-medium leading-tight">{{ row.status[0] }}</div>
+            </div>
+            {% endif %}
+            {% endfor %}
         </div>
         {% endfor %}
     </div>
