@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+{% block title %}{{ teacher.name }} — Fee Track Admin{% endblock %}
+{% block content %}
+
+<div class="flex items-center justify-between mb-6">
+    <div class="flex items-center gap-4">
+        <img src="/teachers/{{ teacher.id }}/qr-code.png" alt="QR code" class="w-16 h-16 border border-slate-200 rounded">
+        <div>
+            <h1 class="text-xl font-semibold text-slate-900">{{ teacher.name }}</h1>
+            <p class="text-sm text-slate-500">
+                Staff ID <span class="font-mono">{{ teacher.staff_id }}</span> ·
+                {{ teacher.designation or "—" }} ·
+                {% if teacher.is_active %}
+                <span class="text-green-700">Active</span>
+                {% else %}
+                <span class="text-slate-500">Inactive</span>
+                {% endif %}
+            </p>
+        </div>
+    </div>
+    <div class="flex items-center gap-4 text-sm">
+        <a href="/teachers/{{ teacher.id }}/id-card" target="_blank" class="text-slate-600 hover:text-slate-900">Print ID card</a>
+        <a href="/teachers/{{ teacher.id }}/edit" class="text-slate-600 hover:text-slate-900">Edit profile</a>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+    <div class="lg:col-span-2 space-y-6">
+
+        <div class="bg-white border border-slate-200 rounded-xl overflow-hidden">
+            <div class="px-4 py-3 border-b border-slate-200">
+                <h2 class="text-sm font-semibold text-slate-900">Profile</h2>
+            </div>
+            <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4 px-4 py-4">
+                <div>
+                    <dt class="text-xs text-slate-500 mb-0.5">Father's name</dt>
+                    <dd class="text-sm text-slate-900">{{ teacher.father_name or "—" }}</dd>
+                </div>
+                <div>
+                    <dt class="text-xs text-slate-500 mb-0.5">Contact</dt>
+                    <dd class="text-sm text-slate-900">{{ teacher.contact or "—" }}</dd>
+                </div>
+                <div>
+                    <dt class="text-xs text-slate-500 mb-0.5">Qualification</dt>
+                    <dd class="text-sm text-slate-900">
+                        {{ qualification_labels.get(teacher.qualification, "—") if teacher.qualification else "—" }}
+                    </dd>
+                </div>
+                <div>
+                    <dt class="text-xs text-slate-500 mb-0.5">Designation</dt>
+                    <dd class="text-sm text-slate-900">{{ teacher.designation or "—" }}</dd>
+                </div>
+                <div>
+                    <dt class="text-xs text-slate-500 mb-0.5">Date joined</dt>
+                    <dd class="text-sm text-slate-900">
+                        {{ teacher.date_joined.strftime('%Y-%m-%d') if teacher.date_joined else "—" }}
+                    </dd>
+                </div>
+                <div>
+                    <dt class="text-xs text-slate-500 mb-0.5">Monthly salary</dt>
+                    <dd class="text-sm text-slate-900">
+                        {% if teacher.salary is not none %}Rs {{ "%.2f"|format(teacher.salary) }}{% else %}—{% endif %}
+                    </dd>
+                </div>
+            </dl>
+        </div>
+
+        <div class="bg-white border border-slate-200 rounded-xl overflow-hidden">
+            <div class="px-4 py-3 border-b border-slate-200">
+                <h2 class="text-sm font-semibold text-slate-900">Teaches</h2>
+            </div>
+            <div class="px-4 py-4">
+                {% if subjects %}
+                <div class="flex flex-wrap gap-2">
+                    {% for subject in subjects %}
+                    <span class="text-xs font-medium text-slate-700 bg-slate-100 px-2.5 py-1 rounded-full">{{ subject }}</span>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-sm text-slate-400">No subjects/categories assigned yet.</p>
+                {% endif %}
+            </div>
+        </div>
+
+    </div>
+
+    <div>
+        <div class="bg-white border border-slate-200 rounded-xl overflow-hidden">
+            <div class="px-4 py-3 border-b border-slate-200">
+                <h2 class="text-sm font-semibold text-slate-900">
+                    Salary — {{ salary_breakdown.period_label }}
+                </h2>
+                <p class="text-xs text-slate-400 mt-0.5">
+                    {% if salary_breakdown.is_month_complete %}Full month{% else %}Month in progress — updates daily{% endif %}
+                </p>
+            </div>
+            <dl class="px-4 py-4 space-y-3">
+                {% if salary_breakdown.working_days == 0 %}
+                <p class="text-sm text-slate-400">
+                    No working days counted for this period yet — either the teacher hadn't joined yet during {{ salary_breakdown.period_label }}, or the month has just started.
+                </p>
+                {% else %}
+                <div class="flex items-center justify-between text-sm">
+                    <dt class="text-slate-500">Working days</dt>
+                    <dd class="text-slate-900">{{ salary_breakdown.working_days }}</dd>
+                </div>
+                <div class="flex items-center justify-between text-sm">
+                    <dt class="text-slate-500">Present</dt>
+                    <dd class="text-green-700 font-medium">{{ salary_breakdown.present_days }}</dd>
+                </div>
+                <div class="flex items-center justify-between text-sm">
+                    <dt class="text-slate-500">Absent</dt>
+                    <dd class="text-red-700 font-medium">{{ salary_breakdown.absent_days }}</dd>
+                </div>
+                <div class="flex items-center justify-between text-sm font-semibold pt-3 border-t border-slate-200">
+                    <dt class="text-slate-900">Net salary</dt>
+                    <dd class="text-slate-900">
+                        {% if salary_breakdown.net_salary is not none %}Rs {{ "%.2f"|format(salary_breakdown.net_salary) }}{% else %}—{% endif %}
+                    </dd>
+                </div>
+                {% endif %}
+            </dl>
+            <p class="text-xs text-slate-400 px-4 pb-4">
+                {% if teacher.salary is none %}
+                Set this teacher's base salary (Edit profile) to calculate net salary.
+                {% else %}
+                Net salary = base salary &minus; (base salary / 30) &times; absent days. Attendance counted from School/Academy kiosk scans, every day except Sunday.
+                {% endif %}
+            </p>
+        </div>
+    </div>
+
+</div>
+
+{% endblock %}

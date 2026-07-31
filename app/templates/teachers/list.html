@@ -32,6 +32,7 @@
                     {% endif %}
                 </td>
                 <td class="px-4 py-3 text-right space-x-3">
+                    <a href="/teachers/{{ teacher.id }}" class="text-slate-600 hover:text-slate-900">View</a>
                     <a href="/teachers/{{ teacher.id }}/id-card" target="_blank" class="text-slate-600 hover:text-slate-900">ID card</a>
                     <a href="/teachers/{{ teacher.id }}/edit" class="text-slate-600 hover:text-slate-900">Edit</a>
                     {% if teacher.is_active %}

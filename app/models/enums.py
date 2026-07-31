@@ -18,6 +18,17 @@ class AttendanceSession(str, Enum):
     ACADEMY = "academy"
 
 
+class Qualification(str, Enum):
+    """Teacher's highest qualification, shown as a fixed dropdown on the
+    teacher form (app/templates/teachers/form.html) rather than free text,
+    so profile data stays consistent across teachers/reporting."""
+
+    INTERMEDIATE = "intermediate"
+    GRADUATE = "graduate"
+    MASTERS = "masters"
+    PHD = "phd"
+
+
 class DiscountType(str, Enum):
     NONE = "none"
     FIXED = "fixed"

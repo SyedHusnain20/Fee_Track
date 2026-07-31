@@ -26,9 +26,91 @@
 
     <div>
         <label for="name" class="block text-sm font-medium text-slate-700 mb-1">Teacher name</label>
-        <input type="text" name="name" id="name" required
+        <input type="text" name="name" id="name" required autofocus
                value="{{ teacher.name if teacher else '' }}"
                class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-800 focus:border-slate-800">
+    </div>
+
+    <div>
+        <label for="father_name" class="block text-sm font-medium text-slate-700 mb-1">Father's name</label>
+        <input type="text" name="father_name" id="father_name" required
+               value="{{ teacher.father_name if teacher and teacher.father_name else '' }}"
+               class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-800 focus:border-slate-800">
+    </div>
+
+    <div>
+        <label for="contact" class="block text-sm font-medium text-slate-700 mb-1">Contact number</label>
+        <input type="text" name="contact" id="contact" required
+               placeholder="+92 3xx xxxxxxx"
+               value="{{ teacher.contact if teacher and teacher.contact else '' }}"
+               class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-800 focus:border-slate-800">
+    </div>
+
+    <div>
+        <label for="qualification" class="block text-sm font-medium text-slate-700 mb-1">Qualification</label>
+        <select name="qualification" id="qualification" required
+                class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-800 focus:border-slate-800">
+            <option value="" {% if not teacher or not teacher.qualification %}selected{% endif %} disabled>Select qualification</option>
+            <option value="intermediate" {% if teacher and teacher.qualification and teacher.qualification.value == "intermediate" %}selected{% endif %}>Intermediate</option>
+            <option value="graduate" {% if teacher and teacher.qualification and teacher.qualification.value == "graduate" %}selected{% endif %}>Graduate</option>
+            <option value="masters" {% if teacher and teacher.qualification and teacher.qualification.value == "masters" %}selected{% endif %}>Masters</option>
+            <option value="phd" {% if teacher and teacher.qualification and teacher.qualification.value == "phd" %}selected{% endif %}>PhD</option>
+        </select>
+    </div>
+
+    <div>
+        <label for="designation" class="block text-sm font-medium text-slate-700 mb-1">Designation</label>
+        <input type="text" name="designation" id="designation" required
+               placeholder="e.g. Senior Teacher"
+               value="{{ teacher.designation if teacher and teacher.designation else '' }}"
+               class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-800 focus:border-slate-800">
+    </div>
+
+    <div>
+        <label for="salary" class="block text-sm font-medium text-slate-700 mb-1">Monthly salary (Rs)</label>
+        <input type="text" name="salary" id="salary" required
+               placeholder="e.g. 30000"
+               value="{{ teacher.salary if teacher and teacher.salary is not none else '' }}"
+               class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-800 focus:border-slate-800">
+        <p class="text-xs text-slate-400 mt-1">
+            Base salary before attendance-based deductions. Monthly salary cycles (Phase 3) deduct for absent days from this figure.
+        </p>
+    </div>
+
+    <div>
+        <label for="date_joined" class="block text-sm font-medium text-slate-700 mb-1">Date joined</label>
+        <input type="date" name="date_joined" id="date_joined" required
+               value="{{ teacher.date_joined.isoformat() if teacher and teacher.date_joined else '' }}"
+               class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-800 focus:border-slate-800">
+        <p class="text-xs text-slate-400 mt-1">
+            Used to start the monthly salary calculation from the right day — a teacher hired mid-month isn't counted absent for days before they joined.
+        </p>
+    </div>
+
+    <div>
+        <label class="block text-sm font-medium text-slate-700 mb-2">Teaches</label>
+        <div class="space-y-2">
+            <label class="flex items-center gap-2 text-sm text-slate-700">
+                <input type="checkbox" name="teaches_school" {% if teacher and teacher.teaches_school %}checked{% endif %}
+                       class="rounded border-slate-300 text-slate-800 focus:ring-slate-800">
+                School
+            </label>
+            <label class="flex items-center gap-2 text-sm text-slate-700">
+                <input type="checkbox" name="teaches_coaching" {% if teacher and teacher.teaches_coaching %}checked{% endif %}
+                       class="rounded border-slate-300 text-slate-800 focus:ring-slate-800">
+                Coaching
+            </label>
+            <label class="flex items-center gap-2 text-sm text-slate-700">
+                <input type="checkbox" name="teaches_english" {% if teacher and teacher.teaches_english %}checked{% endif %}
+                       class="rounded border-slate-300 text-slate-800 focus:ring-slate-800">
+                Language (English)
+            </label>
+            <label class="flex items-center gap-2 text-sm text-slate-700">
+                <input type="checkbox" name="teaches_computer" {% if teacher and teacher.teaches_computer %}checked{% endif %}
+                       class="rounded border-slate-300 text-slate-800 focus:ring-slate-800">
+                Computer
+            </label>
+        </div>
     </div>
 
     <div class="flex items-center gap-3 pt-2">
