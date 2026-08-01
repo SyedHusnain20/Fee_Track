@@ -1,9 +1,20 @@
 """Discount used to live here (discount_type/discount_value per
 student-category pairing) — moved to Student as a single overall discount
 per student instead, applied once across all of a student's active
-enrollments. See app.models.student and app.services.fees."""
+enrollments. See app.models.student and app.services.fees.
+
+custom_fee is an optional per-enrollment override set once at enrollment
+time (students/form.html's "Enroll in" checklist, or the detail page's
+Add enrollment form). When null (the default -- left blank by the admin),
+the enrollment is billed at whatever the category's band rate happens to
+be at that student's current class level, same as before this field
+existed. When set, it overrides the band rate for this enrollment only,
+and stays fixed even if the band's default_amount changes later -- unlike
+the band rate, which always re-prices live. See app.services.fees.
+get_enrollment_amount, the only place this should be read from."""
 
 from datetime import datetime
+from decimal import Decimal
 from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy import Column, Index, text
@@ -41,6 +52,8 @@ class Enrollment(SQLModel, table=True):
         default=EnrollmentStatus.ACTIVE,
         sa_column=Column(str_enum_type(EnrollmentStatus), nullable=False, index=True),
     )
+
+    custom_fee: Optional[Decimal] = Field(default=None, max_digits=10, decimal_places=2)
 
     created_by_id: int = Field(foreign_key="admin_user.id")
     created_at: datetime = Field(default_factory=datetime.utcnow)

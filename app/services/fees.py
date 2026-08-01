@@ -1,9 +1,15 @@
 """Fee computation — Section 5, updated for class-level-banded category
-fees, and again for the move from per-enrollment discounts to a single
-overall discount per student. Enrollment rows never store their own fee
-amount; it's always looked up live from the current CategoryFeeDefault
-band matching the student's class_offset, so a change to a band's fee
-ripples to every enrolled student in that band instantly.
+fees, again for the move from per-enrollment discounts to a single
+overall discount per student, and again for the optional per-enrollment
+custom_fee override. By default an enrollment still has no fee of its
+own — it's looked up live from the current CategoryFeeDefault band
+matching the student's class_offset, so a change to a band's fee ripples
+to every enrolled student in that band instantly. An admin can instead
+set Enrollment.custom_fee once at enrollment time (students/form.html's
+checklist, or the detail page's Add enrollment form); when set, it
+overrides the band rate for that one enrollment and stays fixed even if
+the band's default_amount later changes -- see get_enrollment_amount,
+the only place this should be read from.
 
 Discount now applies exactly once, to a student's combined total across
 all active enrollments (Student.discount_type/discount_value) — not
@@ -79,8 +85,10 @@ def get_band_fee(session: Session, category: FeeCategory, class_offset: int) -> 
     10), so a Class 11 student gets None for category='school', and that
     enrollment is refused rather than silently charged Rs 0.
 
-    This is the RAW band rate — no discount applied here. Discount only
-    ever applies once, to the combined total (see
+    This is the RAW band rate — no discount applied here, and no
+    per-enrollment custom_fee override either (see get_enrollment_amount
+    below for the version that checks that first). Discount only ever
+    applies once, to the combined total (see
     compute_student_fee_breakdown).
     """
     row = session.exec(
@@ -91,6 +99,22 @@ def get_band_fee(session: Session, category: FeeCategory, class_offset: int) -> 
         )
     ).first()
     return row.default_amount if row else None
+
+
+def get_enrollment_amount(
+    session: Session, enrollment: Enrollment, class_offset: int
+) -> Optional[Decimal]:
+    """The amount actually charged for one enrollment: its own custom_fee
+    if the admin set one at enrollment time, otherwise the current band
+    rate for its category at class_offset (get_band_fee). Returns None
+    under the same condition get_band_fee does -- no custom_fee AND no
+    band covers this class_offset -- which should only come up if a
+    student's class level changed after they enrolled, since enrollment
+    itself refuses categories with no covering band.
+    """
+    if enrollment.custom_fee is not None:
+        return enrollment.custom_fee
+    return get_band_fee(session, enrollment.category, class_offset)
 
 
 def compute_student_fee_breakdown(session: Session, student: Student) -> dict:
@@ -127,7 +151,7 @@ def compute_student_fee_breakdown(session: Session, student: Student) -> dict:
     category_amounts: dict = {}
     subtotal = ZERO
     for enrollment in active_enrollments:
-        amount = get_band_fee(session, enrollment.category, class_offset)
+        amount = get_enrollment_amount(session, enrollment, class_offset)
         if amount is None:
             continue
         category_amounts[enrollment.category] = amount

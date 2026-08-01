@@ -26,8 +26,9 @@ selection creates nothing at all, rather than leaving a half-created
 student with only some of the requested enrollments.
 """
 from datetime import datetime, timedelta
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import List, Optional
+import json
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -91,6 +92,41 @@ DISCOUNT_TYPE_LABELS = {
     DiscountType.FIXED: "Fixed amount",
     DiscountType.PERCENTAGE: "Percentage",
 }
+# Form field name for each category's optional custom-fee input on
+# students/form.html's "Enroll in" checklist -- e.g. checking School
+# reveals an input named custom_fee_school. Kept as an explicit
+# per-category mapping (rather than a single repeating field, the way
+# "categories" works) since each category's fee input needs its own name
+# to survive a redisplay-with-errors round-trip independently of which
+# checkboxes are ticked.
+CUSTOM_FEE_FIELD_NAMES = {
+    FeeCategory.SCHOOL: "custom_fee_school",
+    FeeCategory.COACHING: "custom_fee_coaching",
+    FeeCategory.ENGLISH: "custom_fee_english",
+    FeeCategory.COMPUTER: "custom_fee_computer",
+}
+
+
+def _category_bands_json(session: Session) -> str:
+    """Every CategoryFeeDefault band, grouped by category, as a JSON
+    string embedded on students/form.html. Powers that page's "leave
+    blank to use the Rs X default" hint under each category's custom-fee
+    input -- computed client-side against whichever class level is
+    currently selected (the JS in that template matches class_offset
+    against min/max here), so it updates live as the admin changes the
+    class level dropdown without a round-trip.
+    """
+    bands = session.exec(select(CategoryFeeDefault)).all()
+    by_category: dict = {}
+    for band in bands:
+        by_category.setdefault(band.category.value, []).append(
+            {
+                "min": band.min_class_offset,
+                "max": band.max_class_offset,
+                "amount": str(band.default_amount),
+            }
+        )
+    return json.dumps(by_category)
 
 
 def build_student_detail_context(
@@ -306,7 +342,10 @@ async def list_students(
     # Bulk fee-band lookup: fetch all 11 bands ONCE, build an in-memory
     # lookup, and match each enrollment's category+class_offset in pure
     # Python — no per-enrollment query, unlike get_band_fee() when called
-    # in a loop.
+    # in a loop. Only used as the fallback below for an enrollment with no
+    # custom_fee of its own -- see app.services.fees.get_enrollment_amount
+    # for the single-enrollment equivalent of this same custom-fee-first
+    # logic.
     all_bands = session.exec(select(CategoryFeeDefault)).all()
     bands_by_category: dict = {}
     for band in all_bands:
@@ -357,7 +396,7 @@ async def list_students(
         student_enrollments = enrollments_by_student.get(student.id, [])
         subtotal = Decimal("0.00")
         for e in student_enrollments:
-            subtotal += _band_fee(e.category, class_offset)
+            subtotal += e.custom_fee if e.custom_fee is not None else _band_fee(e.category, class_offset)
         total_fee = apply_discount(subtotal, student.discount_type, student.discount_value)
 
         categories_present = {
@@ -441,6 +480,10 @@ async def new_student_form(
             "selected_categories": [],
             "submitted_discount_type": DiscountType.NONE,
             "submitted_discount_value": "",
+            "custom_fee_field_names": CUSTOM_FEE_FIELD_NAMES,
+            "submitted_custom_fees": {},
+            "custom_fee_errors": {},
+            "category_bands_json": _category_bands_json(session),
             "error": None,
         },
     )
@@ -455,14 +498,28 @@ async def create_student(
     class_level_id: int = Form(...),
     enrollment_year: int = Form(...),
     categories: Annotated[List[FeeCategory], Form()] = [],
+    custom_fee_school: str = Form(""),
+    custom_fee_coaching: str = Form(""),
+    custom_fee_english: str = Form(""),
+    custom_fee_computer: str = Form(""),
     discount_type: DiscountType = Form(DiscountType.NONE),
     discount_value: str = Form(""),
     session: Session = Depends(get_session),
     admin: AdminUser = Depends(get_current_admin),
 ):
     class_levels = session.exec(select(ClassLevel).order_by(ClassLevel.class_offset)).all()
+    custom_fee_inputs = {
+        FeeCategory.SCHOOL: custom_fee_school,
+        FeeCategory.COACHING: custom_fee_coaching,
+        FeeCategory.ENGLISH: custom_fee_english,
+        FeeCategory.COMPUTER: custom_fee_computer,
+    }
 
-    def _redisplay(error: str, status_code: int = status.HTTP_400_BAD_REQUEST):
+    def _redisplay(
+        error: str,
+        status_code: int = status.HTTP_400_BAD_REQUEST,
+        custom_fee_errors: Optional[dict] = None,
+    ):
         return templates.TemplateResponse(
             "students/form.html",
             {
@@ -477,6 +534,10 @@ async def create_student(
                 "selected_categories": categories,
                 "submitted_discount_type": discount_type,
                 "submitted_discount_value": discount_value,
+                "custom_fee_field_names": CUSTOM_FEE_FIELD_NAMES,
+                "submitted_custom_fees": custom_fee_inputs,
+                "custom_fee_errors": custom_fee_errors or {},
+                "category_bands_json": _category_bands_json(session),
                 "error": error,
             },
             status_code=status_code,
@@ -511,6 +572,34 @@ async def create_student(
             names = ", ".join(CATEGORY_LABELS[c] for c in ineligible)
             return _redisplay(f"This class level isn't eligible for: {names}.")
 
+    # Custom fee is optional per selected category -- blank means "use the
+    # category's band default," same as if this field never existed. Only
+    # validated for categories actually checked; a stray value left in an
+    # unchecked category's input (shouldn't happen given the JS hides it,
+    # but the server never trusts client-side hiding) is ignored outright.
+    custom_fee_amounts: dict = {}
+    custom_fee_errors: dict = {}
+    for category in selected_categories:
+        raw = custom_fee_inputs[category].strip()
+        if not raw:
+            custom_fee_amounts[category] = None
+            continue
+        try:
+            amount = Decimal(raw)
+        except InvalidOperation:
+            custom_fee_errors[category] = "Enter a valid amount."
+            continue
+        if amount < 0:
+            custom_fee_errors[category] = "Amount can't be negative."
+            continue
+        custom_fee_amounts[category] = amount
+
+    if custom_fee_errors:
+        names = ", ".join(CATEGORY_LABELS[c] for c in custom_fee_errors)
+        return _redisplay(
+            f"Fix the custom fee for: {names}.", custom_fee_errors=custom_fee_errors
+        )
+
     student = Student(
         roll_number=roll_number,
         name=name.strip(),
@@ -532,6 +621,7 @@ async def create_student(
             category=category,
             status=EnrollmentStatus.ACTIVE,
             created_by_id=admin.id,
+            custom_fee=custom_fee_amounts.get(category),
         )
         session.add(enrollment)
         created_enrollments.append(enrollment)
@@ -550,6 +640,9 @@ async def create_student(
                     "student_id": enrollment.student_id,
                     "category": enrollment.category.value,
                     "status": enrollment.status.value,
+                    "custom_fee": (
+                        str(enrollment.custom_fee) if enrollment.custom_fee is not None else None
+                    ),
                 },
             )
 

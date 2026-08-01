@@ -71,7 +71,7 @@
                 class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-800 focus:border-slate-800"
             >
                 {% for cl in class_levels %}
-                <option value="{{ cl.id }}" {% if student and student.class_level_id == cl.id %}selected{% endif %}>{{ cl.name }}</option>
+                <option value="{{ cl.id }}" data-offset="{{ cl.class_offset }}" {% if student and student.class_level_id == cl.id %}selected{% endif %}>{{ cl.name }}</option>
                 {% endfor %}
             </select>
         </div>
@@ -115,24 +115,108 @@
 
         <div>
             <label class="block text-sm font-medium text-slate-700 mb-2">Enroll in (optional)</label>
-            <div class="space-y-2">
+            <div class="space-y-3" id="enroll-categories">
                 {% for category, label in category_labels.items() %}
-                <label class="flex items-center gap-2 text-sm text-slate-700">
-                    <input
-                        type="checkbox"
-                        name="categories"
-                        value="{{ category.value }}"
-                        {% if category in selected_categories %}checked{% endif %}
-                        class="rounded border-slate-300 text-slate-800 focus:ring-slate-800"
-                    >
-                    {{ label }}
-                </label>
+                <div class="enroll-category-row" data-category="{{ category.value }}">
+                    <label class="flex items-center gap-2 text-sm text-slate-700">
+                        <input
+                            type="checkbox"
+                            name="categories"
+                            value="{{ category.value }}"
+                            class="enroll-category-checkbox rounded border-slate-300 text-slate-800 focus:ring-slate-800"
+                            {% if category in selected_categories %}checked{% endif %}
+                        >
+                        {{ label }}
+                    </label>
+                    <div class="enroll-category-fee mt-1.5 ml-6"
+                         {% if category not in selected_categories %}hidden{% endif %}>
+                        <input
+                            type="text"
+                            name="{{ custom_fee_field_names[category] }}"
+                            value="{{ submitted_custom_fees.get(category, '') }}"
+                            placeholder="Custom fee (optional)"
+                            class="w-40 rounded-md border {{ 'border-red-400' if category in custom_fee_errors else 'border-slate-300' }} px-2 py-1 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-800 focus:border-slate-800"
+                        >
+                        <p class="enroll-category-fee-hint text-xs text-slate-400 mt-1"></p>
+                        {% if category in custom_fee_errors %}
+                        <p class="text-xs text-red-600 mt-1">{{ custom_fee_errors[category] }}</p>
+                        {% endif %}
+                    </div>
+                </div>
                 {% endfor %}
             </div>
             <p class="text-xs text-slate-400 mt-2">
                 A category may be rejected if it isn't offered at the selected class level (e.g. School stops at Class 10).
+                Leave a category's fee blank to bill it at that category's default rate — only fill it in to override the fee for this one student.
             </p>
         </div>
+
+        <script id="category-bands-data" type="application/json">{{ category_bands_json | safe }}</script>
+        <script>
+        (function () {
+            // Enroll-in checklist: checking a category reveals its optional
+            // custom-fee input right below it; unchecking hides it again
+            // (the input's value is left as-is, not cleared, in case the
+            // admin re-checks it a moment later). The hint text under each
+            // input shows what the category would default to at the
+            // currently selected class level -- purely informational, read
+            // from the CATEGORY_BANDS data embedded above and recomputed
+            // whenever the class level changes; the actual default lookup
+            // happens server-side (app.services.fees.get_enrollment_amount)
+            // regardless of whether this hint renders correctly.
+            const dataEl = document.getElementById("category-bands-data");
+            const classLevelSelect = document.getElementById("class_level_id");
+            if (!dataEl || !classLevelSelect) return;
+
+            let bandsByCategory = {};
+            try {
+                bandsByCategory = JSON.parse(dataEl.textContent);
+            } catch (e) {
+                bandsByCategory = {};
+            }
+
+            function defaultFeeFor(category, classOffset) {
+                const bands = bandsByCategory[category] || [];
+                for (const band of bands) {
+                    if (classOffset >= band.min && classOffset <= band.max) {
+                        return band.amount;
+                    }
+                }
+                return null;
+            }
+
+            function currentClassOffset() {
+                const option = classLevelSelect.options[classLevelSelect.selectedIndex];
+                if (!option) return null;
+                const offset = parseInt(option.dataset.offset, 10);
+                return Number.isNaN(offset) ? null : offset;
+            }
+
+            function refreshHints() {
+                const classOffset = currentClassOffset();
+                document.querySelectorAll(".enroll-category-row").forEach(function (row) {
+                    const category = row.dataset.category;
+                    const hint = row.querySelector(".enroll-category-fee-hint");
+                    if (!hint) return;
+                    const defaultFee = classOffset === null ? null : defaultFeeFor(category, classOffset);
+                    hint.textContent = defaultFee !== null
+                        ? "Default at this class level: Rs " + defaultFee
+                        : "Not offered at this class level";
+                });
+            }
+
+            document.querySelectorAll(".enroll-category-checkbox").forEach(function (checkbox) {
+                checkbox.addEventListener("change", function () {
+                    const row = checkbox.closest(".enroll-category-row");
+                    const feeBox = row.querySelector(".enroll-category-fee");
+                    if (feeBox) feeBox.hidden = !checkbox.checked;
+                });
+            });
+
+            classLevelSelect.addEventListener("change", refreshHints);
+            refreshHints();
+        })();
+        </script>
         {% endif %}
 
         <div class="flex items-center gap-3 pt-2">

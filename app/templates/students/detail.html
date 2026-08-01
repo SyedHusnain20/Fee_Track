@@ -90,7 +90,12 @@
                     {% for row in fee_rows %}
                     <tr>
                         <td class="px-4 py-3 text-slate-900">{{ category_labels[row.enrollment.category] }}</td>
-                        <td class="px-4 py-3 text-slate-700">Rs {{ "%.2f"|format(row.default_amount) }}</td>
+                        <td class="px-4 py-3 text-slate-700">
+                            Rs {{ "%.2f"|format(row.default_amount) }}
+                            {% if row.enrollment.custom_fee is not none %}
+                            <span class="text-xs text-slate-400 ml-1">(custom)</span>
+                            {% endif %}
+                        </td>
                         <td class="px-4 py-3 text-right">
                             <form method="post" action="/students/{{ student.id }}/enrollments/{{ row.enrollment.id }}/end" class="inline" onsubmit="return confirm('End this enrollment?');">
                                 <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
