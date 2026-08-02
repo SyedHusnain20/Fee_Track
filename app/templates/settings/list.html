@@ -100,6 +100,15 @@
 
 <h2 class="text-sm font-semibold text-slate-700 mb-2">More settings</h2>
 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl">
+    <a href="/admin/accounts/requests" class="block bg-white border border-slate-200 rounded-xl p-4 hover:border-slate-400 transition-colors">
+        <div class="flex items-center gap-2">
+            <div class="text-sm font-medium text-slate-900">Admin Requests</div>
+            {% if pending_admin_count %}
+            <span class="inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded-full bg-amber-100 text-amber-700 text-xs font-semibold">{{ pending_admin_count }}</span>
+            {% endif %}
+        </div>
+        <div class="text-xs text-slate-500 mt-1">Review and approve or reject new admin signup requests.</div>
+    </a>
     <a href="/category-fees" class="block bg-white border border-slate-200 rounded-xl p-4 hover:border-slate-400 transition-colors">
         <div class="text-sm font-medium text-slate-900">Category Fees</div>
         <div class="text-xs text-slate-500 mt-1">Edit each class-level band's default fee, per category.</div>

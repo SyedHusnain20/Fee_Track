@@ -10,10 +10,11 @@ app.services.fee_settings), a period-scoped Financial Summary (the actual
 Rs revenue/collected/outstanding figures — moved here from /fee-cycles,
 since those are sensitive financial figures that shouldn't be visible to
 every admin who opens that page; /fee-cycles itself now only shows
-non-sensitive student counts), plus links out to Rollover and Category
-Fees, both of which used to have their own top-nav entries and now live
-only here. Their routes/logic are unchanged — this page just adds a front
-door to them.
+non-sensitive student counts), plus links out to Rollover, Category Fees,
+and Admin Requests, all of which used to have their own top-nav entries
+(or in Admin Requests' case, live in admin_accounts.py) and now live only
+here. Their routes/logic are unchanged — this page just adds a front door
+to them.
 
 Every route in this module requires require_super_admin (app.api.deps),
 not the plain get_current_admin used elsewhere — regular admins can use
@@ -92,6 +93,14 @@ def _rows(session: Session) -> list[dict]:
     ]
 
 
+def _pending_admin_count(session: Session) -> int:
+    return len(
+        session.exec(
+            select(AdminUser).where(AdminUser.is_approved == False)  # noqa: E712
+        ).all()
+    )
+
+
 @router.get("", response_class=HTMLResponse)
 async def list_settings(
     request: Request,
@@ -109,6 +118,7 @@ async def list_settings(
             "due_day": get_fee_due_day(session),
             "error": None,
             "due_day_error": None,
+            "pending_admin_count": _pending_admin_count(session),
             **_financial_totals(session, period),
         },
     )
@@ -136,6 +146,7 @@ async def update_fee_due_day(
                 "due_day": due_day,
                 "error": None,
                 "due_day_error": "Enter a due day between 1 and 31.",
+                "pending_admin_count": _pending_admin_count(session),
                 **_financial_totals(session, _current_period()),
             },
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -168,6 +179,7 @@ async def update_setting(
                 "due_day": get_fee_due_day(session),
                 "error": "Enter start time as HH:MM.",
                 "due_day_error": None,
+                "pending_admin_count": _pending_admin_count(session),
                 **_financial_totals(session, _current_period()),
             },
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -184,6 +196,7 @@ async def update_setting(
                     "due_day": get_fee_due_day(session),
                     "error": "Grace period can't be negative.",
                     "due_day_error": None,
+                    "pending_admin_count": _pending_admin_count(session),
                     **_financial_totals(session, _current_period()),
                 },
                 status_code=status.HTTP_400_BAD_REQUEST,

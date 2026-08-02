@@ -48,9 +48,11 @@ async def get_current_admin(
         raise _redirect_to_login()
 
     admin = session.get(AdminUser, admin_session.admin_id)
-    if admin is None or not admin.is_active:
-        # Deactivated or deleted admin: clear the now-dangling session row
-        # too, rather than leaving it to expire on its own.
+    if admin is None or not admin.is_active or not admin.is_approved:
+        # Deactivated, deleted, or (shouldn't normally happen, since
+        # login_submit already blocks it — see auth.py) a not-yet-approved
+        # admin: clear the now-dangling session row too, rather than
+        # leaving it to expire on its own.
         session.delete(admin_session)
         session.commit()
         raise _redirect_to_login()

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fee Track — Admin Login</title>
+    <title>Fee Track — Request Admin Access</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="min-h-screen bg-slate-50 flex items-center justify-center px-4">
@@ -13,11 +13,13 @@
             <div class="inline-flex items-center justify-center w-12 h-12 rounded-lg bg-slate-800 text-white font-semibold text-lg mb-4">
                 F
             </div>
-            <h1 class="text-xl font-semibold text-slate-900">Fee Track Admin</h1>
-            <p class="text-sm text-slate-500 mt-1">Sign in to manage attendance and fees.</p>
+            <h1 class="text-xl font-semibold text-slate-900">Request Admin Access</h1>
+            <p class="text-sm text-slate-500 mt-1">
+                Submit your details. A super admin will review and approve your request before you can sign in.
+            </p>
         </div>
 
-        <form method="post" action="/login" class="bg-white border border-slate-200 rounded-xl shadow-sm p-6 space-y-4">
+        <form method="post" action="/signup" class="bg-white border border-slate-200 rounded-xl shadow-sm p-6 space-y-4">
 
             {% if error %}
             <div class="text-sm text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-2">
@@ -26,14 +28,29 @@
             {% endif %}
 
             <div>
+                <label for="name" class="block text-sm font-medium text-slate-700 mb-1">Full name</label>
+                <input
+                    type="text"
+                    name="name"
+                    id="name"
+                    required
+                    autofocus
+                    autocomplete="name"
+                    value="{{ name }}"
+                    class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-800 focus:border-slate-800"
+                    placeholder="Jane Doe"
+                >
+            </div>
+
+            <div>
                 <label for="email" class="block text-sm font-medium text-slate-700 mb-1">Email</label>
                 <input
                     type="email"
                     name="email"
                     id="email"
                     required
-                    autofocus
                     autocomplete="username"
+                    value="{{ email }}"
                     class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-800 focus:border-slate-800"
                     placeholder="you@school.edu"
                 >
@@ -46,9 +63,24 @@
                     name="password"
                     id="password"
                     required
-                    autocomplete="current-password"
+                    minlength="8"
+                    autocomplete="new-password"
                     class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-800 focus:border-slate-800"
-                    placeholder="••••••••"
+                    placeholder="At least 8 characters"
+                >
+            </div>
+
+            <div>
+                <label for="confirm_password" class="block text-sm font-medium text-slate-700 mb-1">Confirm password</label>
+                <input
+                    type="password"
+                    name="confirm_password"
+                    id="confirm_password"
+                    required
+                    minlength="8"
+                    autocomplete="new-password"
+                    class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-800 focus:border-slate-800"
+                    placeholder="Re-enter your password"
                 >
             </div>
 
@@ -56,12 +88,12 @@
                 type="submit"
                 class="w-full rounded-md bg-slate-800 text-white text-sm font-medium py-2.5 hover:bg-slate-700 transition-colors"
             >
-                Sign in
+                Submit request
             </button>
         </form>
 
         <p class="text-center text-xs text-slate-400 mt-6">
-            Need an account? <a href="/signup" class="text-slate-600 hover:text-slate-800 underline">Request admin access</a>
+            Already approved? <a href="/login" class="text-slate-600 hover:text-slate-800 underline">Sign in</a>
         </p>
         <p class="text-center text-xs text-slate-400 mt-2">
             Powered by R&amp;R Digital Solutions
