@@ -24,7 +24,7 @@ admins (app/templates/base.html), but that's cosmetic; this dependency
 is the actual enforcement.
 """
 
-from datetime import time
+from datetime import date, time
 from decimal import Decimal
 from typing import Optional
 
@@ -45,6 +45,7 @@ from app.services.attendance_settings import (
     set_session_timing,
 )
 from app.services.fee_settings import get_fee_due_day, set_fee_due_day
+from app.services.holidays import list_recent_holidays, mark_holiday
 
 router = APIRouter(prefix="/settings", tags=["settings"])
 templates = Jinja2Templates(directory="app/templates")
@@ -101,6 +102,36 @@ def _pending_admin_count(session: Session) -> int:
     )
 
 
+def _base_context(
+    request: Request,
+    session: Session,
+    admin: AdminUser,
+    *,
+    period: Optional[str] = None,
+    error: Optional[str] = None,
+    due_day: Optional[int] = None,
+    due_day_error: Optional[str] = None,
+    holiday_error: Optional[str] = None,
+) -> dict:
+    """Shared template context for every settings/list.html render — GET
+    and every POST's re-render-with-error path all show the same page, so
+    this keeps the five different handlers below from silently drifting
+    out of sync on which keys the template expects (rows, holidays, the
+    three independent error slots, etc.)."""
+    return {
+        "request": request,
+        "admin": admin,
+        "rows": _rows(session),
+        "due_day": due_day if due_day is not None else get_fee_due_day(session),
+        "error": error,
+        "due_day_error": due_day_error,
+        "holidays": list_recent_holidays(session),
+        "holiday_error": holiday_error,
+        "pending_admin_count": _pending_admin_count(session),
+        **_financial_totals(session, period or _current_period()),
+    }
+
+
 @router.get("", response_class=HTMLResponse)
 async def list_settings(
     request: Request,
@@ -108,19 +139,9 @@ async def list_settings(
     session: Session = Depends(get_session),
     admin: AdminUser = Depends(require_super_admin),
 ):
-    period = period or _current_period()
     return templates.TemplateResponse(
         "settings/list.html",
-        {
-            "request": request,
-            "admin": admin,
-            "rows": _rows(session),
-            "due_day": get_fee_due_day(session),
-            "error": None,
-            "due_day_error": None,
-            "pending_admin_count": _pending_admin_count(session),
-            **_financial_totals(session, period),
-        },
+        _base_context(request, session, admin, period=period),
     )
 
 
@@ -139,20 +160,43 @@ async def update_fee_due_day(
     if due_day < 1 or due_day > 31:
         return templates.TemplateResponse(
             "settings/list.html",
-            {
-                "request": request,
-                "admin": admin,
-                "rows": _rows(session),
-                "due_day": due_day,
-                "error": None,
-                "due_day_error": "Enter a due day between 1 and 31.",
-                "pending_admin_count": _pending_admin_count(session),
-                **_financial_totals(session, _current_period()),
-            },
+            _base_context(
+                request,
+                session,
+                admin,
+                due_day=due_day,
+                due_day_error="Enter a due day between 1 and 31.",
+            ),
             status_code=status.HTTP_400_BAD_REQUEST,
         )
 
     set_fee_due_day(session, due_day)
+    session.commit()
+    return RedirectResponse(url="/settings", status_code=status.HTTP_303_SEE_OTHER)
+
+
+@router.post("/holidays")
+async def mark_holiday_submit(
+    request: Request,
+    holiday_date: date = Form(...),
+    reason: Optional[str] = Form(None),
+    session: Session = Depends(get_session),
+    admin: AdminUser = Depends(require_super_admin),
+):
+    # Registered before POST /{attendance_session} below for the same
+    # routing reason as /fee-due-day above — "holidays" would otherwise
+    # try to match that route's AttendanceSession path parameter and fail
+    # enum validation before reaching this handler.
+    try:
+        mark_holiday(session, holiday_date, reason, marked_by_id=admin.id)
+    except ValueError as exc:
+        session.rollback()
+        return templates.TemplateResponse(
+            "settings/list.html",
+            _base_context(request, session, admin, holiday_error=str(exc)),
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+
     session.commit()
     return RedirectResponse(url="/settings", status_code=status.HTTP_303_SEE_OTHER)
 
@@ -172,16 +216,7 @@ async def update_setting(
     except (ValueError, IndexError):
         return templates.TemplateResponse(
             "settings/list.html",
-            {
-                "request": request,
-                "admin": admin,
-                "rows": _rows(session),
-                "due_day": get_fee_due_day(session),
-                "error": "Enter start time as HH:MM.",
-                "due_day_error": None,
-                "pending_admin_count": _pending_admin_count(session),
-                **_financial_totals(session, _current_period()),
-            },
+            _base_context(request, session, admin, error="Enter start time as HH:MM."),
             status_code=status.HTTP_400_BAD_REQUEST,
         )
 
@@ -189,16 +224,9 @@ async def update_setting(
         if grace_minutes is None or grace_minutes < 0:
             return templates.TemplateResponse(
                 "settings/list.html",
-                {
-                    "request": request,
-                    "admin": admin,
-                    "rows": _rows(session),
-                    "due_day": get_fee_due_day(session),
-                    "error": "Grace period can't be negative.",
-                    "due_day_error": None,
-                    "pending_admin_count": _pending_admin_count(session),
-                    **_financial_totals(session, _current_period()),
-                },
+                _base_context(
+                    request, session, admin, error="Grace period can't be negative."
+                ),
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
         set_session_timing(session, attendance_session, parsed_start, grace_minutes)

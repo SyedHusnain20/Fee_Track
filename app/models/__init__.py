@@ -7,6 +7,7 @@ from app.models.class_level import ClassLevel
 from app.models.enrollment import Enrollment
 from app.models.fee_cycle import FeeCycle
 from app.models.holiday import Holiday
+from app.models.notification import Notification
 from app.models.roll_number_counter import RollNumberCounter
 from app.models.student import Student
 from app.models.system_setting import SystemSetting
@@ -22,6 +23,7 @@ __all__ = [
     "Enrollment",
     "FeeCycle",
     "Holiday",
+    "Notification",
     "RollNumberCounter",
     "Student",
     "SystemSetting",
