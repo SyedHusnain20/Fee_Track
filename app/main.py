@@ -2,6 +2,7 @@ from fastapi import Depends, FastAPI
 
 from app.api.admin_accounts import router as admin_accounts_router
 from app.api.archive import router as archive_router
+from app.api.attendance_manual import router as attendance_manual_router
 from app.api.auth import router as auth_router
 from app.api.category_fees import router as category_fees_router
 from app.api.dashboard import router as dashboard_router
@@ -29,6 +30,7 @@ app.include_router(category_fees_router)
 app.include_router(fee_cycles_router)
 app.include_router(id_cards_router)
 app.include_router(kiosk_router)
+app.include_router(attendance_manual_router)
 app.include_router(settings_router)
 app.include_router(reports_router)
 app.include_router(rollover_router)

@@ -6,6 +6,7 @@ from app.models.category_fee_default import CategoryFeeDefault
 from app.models.class_level import ClassLevel
 from app.models.enrollment import Enrollment
 from app.models.fee_cycle import FeeCycle
+from app.models.holiday import Holiday
 from app.models.roll_number_counter import RollNumberCounter
 from app.models.student import Student
 from app.models.system_setting import SystemSetting
@@ -20,6 +21,7 @@ __all__ = [
     "ClassLevel",
     "Enrollment",
     "FeeCycle",
+    "Holiday",
     "RollNumberCounter",
     "Student",
     "SystemSetting",

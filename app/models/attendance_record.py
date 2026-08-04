@@ -63,5 +63,22 @@ class AttendanceRecord(SQLModel, table=True):
         default=None, sa_column=Column(str_enum_type(PunctualityStatus), nullable=True)
     )
 
+    # Manual-attendance-entry feature, Phase 1. False/NULL for every scan
+    # made through the (deliberately unauthenticated) kiosk — that flow is
+    # untouched. True only for a record created via the new authenticated
+    # /attendance/manual fallback, used when the scanner itself is down.
+    # marked_by_id is NULL for real kiosk scans (there's no admin identity
+    # to attach — the kiosk has no login) and always set for a manual
+    # entry, since that path requires being logged in; this is the
+    # accountability trail a scan doesn't need and can't have. No ORM
+    # Relationship() here, matching created_by_id/collected_by_id on
+    # FeeCycle — this codebase looks these up manually where the admin's
+    # name is actually needed rather than eager-loading a relationship for
+    # every AttendanceRecord query.
+    is_manual: bool = Field(default=False)
+    marked_by_id: Optional[int] = Field(
+        default=None, foreign_key="admin_user.id", index=True
+    )
+
     student: Optional["Student"] = Relationship(back_populates="attendance_records")
     teacher: Optional["Teacher"] = Relationship(back_populates="attendance_records")
