@@ -13,10 +13,12 @@ reads that existing data, scoped to teacher_id.
 
 "Working days" reuses this codebase's existing "academic day" convention
 from app/api/reports.py's attendance report: every calendar day except
-Sunday (Saturday counts as a working day — there's no broader holiday
-calendar in this system). A teacher counts as present on a working day if
-they have at least one AttendanceRecord that day, in either session
-(School or Academy) — which one doesn't matter for payroll purposes.
+Sunday (Saturday counts as a working day) and every date marked in the
+Holiday table (see app.services.holidays) -- a school closure doesn't
+dock a teacher's pay any more than it marks a student absent. A teacher
+counts as present on a working day if they have at least one
+AttendanceRecord that day, in either session (School or Academy) — which
+one doesn't matter for payroll purposes.
 
 For the current, still-in-progress month, only working days up to and
 including today are counted, so the figure shown updates live through the
@@ -42,19 +44,24 @@ from sqlmodel import Session, select
 from app.core.timezone import school_today
 from app.models.attendance_record import AttendanceRecord
 from app.models.teacher import Teacher
+from app.services.holidays import get_holiday_dates_in_range
 
 SALARY_DIVISOR = Decimal(30)
 
 
 def _working_days_in_period(
-    year: int, month: int, today: date, hire_date: Optional[date] = None
+    year: int,
+    month: int,
+    today: date,
+    hire_date: Optional[date] = None,
+    holiday_dates: frozenset = frozenset(),
 ) -> list[date]:
-    """Every non-Sunday calendar day in the given month, capped at `today`
-    when the month is the one currently in progress, and starting no
-    earlier than `hire_date` when that falls inside (or after) this
-    month -- a teacher can't be "absent" on a day before they joined.
-    Returns an empty list if the teacher hadn't joined by the end of the
-    window at all (e.g. hired later in the month than `today`)."""
+    """Every non-Sunday, non-holiday calendar day in the given month,
+    capped at `today` when the month is the one currently in progress,
+    and starting no earlier than `hire_date` when that falls inside (or
+    after) this month -- a teacher can't be "absent" on a day before they
+    joined. Returns an empty list if the teacher hadn't joined by the end
+    of the window at all (e.g. hired later in the month than `today`)."""
     last_day = calendar.monthrange(year, month)[1]
     month_start = date(year, month, 1)
     month_end = date(year, month, last_day)
@@ -70,7 +77,7 @@ def _working_days_in_period(
     days = []
     d = start_date
     while d <= end_date:
-        if d.weekday() != 6:  # Monday=0 ... Sunday=6
+        if d.weekday() != 6 and d not in holiday_dates:  # Monday=0 ... Sunday=6
             days.append(d)
         d += timedelta(days=1)
     return days
@@ -90,7 +97,13 @@ def compute_teacher_monthly_salary(
     year = year or today.year
     month = month or today.month
 
-    working_days = _working_days_in_period(year, month, today, hire_date=teacher.date_joined)
+    last_day = calendar.monthrange(year, month)[1]
+    holiday_dates = get_holiday_dates_in_range(
+        session, date(year, month, 1), date(year, month, last_day)
+    )
+    working_days = _working_days_in_period(
+        year, month, today, hire_date=teacher.date_joined, holiday_dates=holiday_dates
+    )
 
     present_days = 0
     if working_days:

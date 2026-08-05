@@ -52,41 +52,50 @@
 
 <h2 class="text-sm font-semibold text-slate-700 mb-2">Holidays</h2>
 <p class="text-sm text-slate-500 mb-3">
-    Mark a day the school is closed, beyond the standing Sunday-off rule. This feeds attendance reports and teacher salary calculations — marked days won't count as absences. Holidays can be marked here but not un-marked; double-check the date before saving.
+    Mark today as a day the school is closed, beyond the standing Sunday-off rule. This feeds attendance reports and teacher salary calculations — no one is marked absent today, even without a kiosk scan. Holidays can be marked here but not un-marked; double-check before confirming.
 </p>
 {% if holiday_error %}
 <div class="text-sm text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-2 mb-3">{{ holiday_error }}</div>
 {% endif %}
-<form method="post" action="/settings/holidays" class="bg-white border border-slate-200 rounded-xl p-4 max-w-2xl mb-4 flex items-end gap-3">
-    <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
-    <div>
-        <label class="block text-xs text-slate-500 mb-1">Date</label>
-        <input type="date" name="holiday_date" required
-               class="rounded border border-slate-300 text-sm px-2 py-1.5">
-    </div>
-    <div class="flex-1">
-        <label class="block text-xs text-slate-500 mb-1">Reason <span class="text-slate-400">(optional)</span></label>
-        <input type="text" name="reason" maxlength="255" placeholder="e.g. Eid, Flood closure"
-               class="w-full rounded border border-slate-300 text-sm px-2 py-1.5">
-    </div>
-    <button type="submit" class="rounded-md bg-slate-800 text-white text-sm font-medium px-4 py-1.5 hover:bg-slate-700">
-        Mark holiday
+<div class="bg-white border border-slate-200 rounded-xl p-4 max-w-2xl mb-4">
+    <button type="button" onclick="document.getElementById('holiday-confirm-modal').showModal()"
+            class="rounded-md bg-amber-600 text-white text-sm font-medium px-4 py-1.5 hover:bg-amber-700">
+        Mark Today as Holiday
     </button>
-</form>
+</div>
+
+<dialog id="holiday-confirm-modal" class="rounded-xl p-0 backdrop:bg-slate-900/50 w-full max-w-sm">
+    <form method="post" action="/settings/holidays/today" class="p-5">
+        <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
+        <p class="text-sm text-slate-700 mb-4">
+            Do you really want to mark today as a holiday? No one will be marked absent today.
+        </p>
+        <div class="flex justify-end gap-2">
+            <button type="button" onclick="document.getElementById('holiday-confirm-modal').close()"
+                    class="rounded-md border border-slate-300 text-sm px-4 py-1.5 hover:bg-slate-50">
+                No
+            </button>
+            <button type="submit"
+                    class="rounded-md bg-amber-600 text-white text-sm font-medium px-4 py-1.5 hover:bg-amber-700">
+                Yes, mark holiday
+            </button>
+        </div>
+    </form>
+</dialog>
 
 <div class="bg-white border border-slate-200 rounded-xl overflow-hidden max-w-2xl mb-8">
     <table class="w-full text-sm">
         <thead class="bg-slate-50 border-b border-slate-200 text-left text-slate-500">
             <tr>
                 <th class="px-4 py-3 font-medium">Date</th>
-                <th class="px-4 py-3 font-medium">Reason</th>
+                <th class="px-4 py-3 font-medium">Marked by</th>
             </tr>
         </thead>
         <tbody class="divide-y divide-slate-100">
             {% for holiday in holidays %}
             <tr>
                 <td class="px-4 py-3 text-slate-900">{{ holiday.holiday_date.strftime("%d %b %Y") }}</td>
-                <td class="px-4 py-3 text-slate-500">{{ holiday.reason or "—" }}</td>
+                <td class="px-4 py-3 text-slate-500">{{ holiday.marked_by_name }}</td>
             </tr>
             {% else %}
             <tr>

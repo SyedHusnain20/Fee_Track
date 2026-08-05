@@ -38,6 +38,7 @@ from app.models.attendance_record import AttendanceRecord
 from app.models.enums import AttendanceSession, FeeCycleStatus, PunctualityStatus
 from app.models.fee_cycle import FeeCycle
 from app.models.student import Student
+from app.services.holidays import get_holiday_dates_in_range
 
 router = APIRouter(prefix="/reports", tags=["reports"])
 templates = Jinja2Templates(directory="app/templates")
@@ -187,6 +188,9 @@ async def attendance_report(
     today = school_today()
     academic_days = _last_n_academic_days(today, 30)
     day_set = set(academic_days)
+    # One lookup for the whole 30-day window, not per student — see
+    # app.services.holidays.get_holiday_dates_in_range.
+    holiday_dates = get_holiday_dates_in_range(session, academic_days[-1], academic_days[0])
 
     students: list[Student] = []
     truncated = False
@@ -222,7 +226,21 @@ async def attendance_report(
             present_count = 0
             late_count = 0
             absent_count = 0
+            holiday_count = 0
             for day in academic_days:
+                if day in holiday_dates:
+                    # School was closed — no one is "absent" on a holiday,
+                    # even without a kiosk scan. Excluded from every count
+                    # below, including the percentage denominator, rather
+                    # than counted as present/late/absent.
+                    status_label = "Holiday"
+                    holiday_count += 1
+                    day_rows.append({
+                        "day": day,
+                        "weekday": day.strftime("%a"),
+                        "status": status_label,
+                    })
+                    continue
                 school_record = school_by_day.get(day)
                 if school_record is not None:
                     if school_record.punctuality_status == PunctualityStatus.LATE:
@@ -243,7 +261,7 @@ async def attendance_report(
                     "status": status_label,
                 })
 
-            total = len(academic_days)
+            total = len(academic_days) - holiday_count
             percentage = round((present_count + late_count) / total * 100, 1) if total else 0.0
 
             reports.append({

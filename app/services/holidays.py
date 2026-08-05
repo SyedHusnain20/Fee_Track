@@ -23,6 +23,20 @@ def list_recent_holidays(session: Session, limit: int = RECENT_HOLIDAYS_LIMIT) -
     ).all()
 
 
+def get_holiday_dates_in_range(session: Session, start: date, end: date) -> set[date]:
+    """Every marked holiday_date within [start, end], inclusive. Shared by
+    every place that computes attendance/absence over a date window
+    (app/api/reports.py's attendance report, app/services/teacher_salary.py's
+    working-days calc, app/api/students.py's profile strip) so a holiday
+    only has to be looked up one way, not reimplemented per call site."""
+    rows = session.exec(
+        select(Holiday.holiday_date).where(
+            Holiday.holiday_date >= start, Holiday.holiday_date <= end
+        )
+    ).all()
+    return set(rows)
+
+
 def mark_holiday(
     session: Session,
     holiday_date: date,

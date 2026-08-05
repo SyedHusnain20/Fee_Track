@@ -24,7 +24,7 @@ admins (app/templates/base.html), but that's cosmetic; this dependency
 is the actual enforcement.
 """
 
-from datetime import date, time
+from datetime import time
 from decimal import Decimal
 from typing import Optional
 
@@ -94,6 +94,29 @@ def _rows(session: Session) -> list[dict]:
     ]
 
 
+def _holiday_rows(session: Session) -> list[dict]:
+    """list_recent_holidays() rows enriched with the marking admin's name.
+    Holiday has no ORM Relationship() to AdminUser (see the model's
+    docstring), so marked_by_id is resolved here rather than in the
+    template — one query for however many distinct admins appear in the
+    recent-holidays window, not one query per row."""
+    holidays = list_recent_holidays(session)
+    admin_ids = {h.marked_by_id for h in holidays if h.marked_by_id is not None}
+    names = {}
+    if admin_ids:
+        names = {
+            a.id: a.name
+            for a in session.exec(select(AdminUser).where(AdminUser.id.in_(admin_ids))).all()
+        }
+    return [
+        {
+            "holiday_date": h.holiday_date,
+            "marked_by_name": names.get(h.marked_by_id, "—"),
+        }
+        for h in holidays
+    ]
+
+
 def _pending_admin_count(session: Session) -> int:
     return len(
         session.exec(
@@ -125,7 +148,7 @@ def _base_context(
         "due_day": due_day if due_day is not None else get_fee_due_day(session),
         "error": error,
         "due_day_error": due_day_error,
-        "holidays": list_recent_holidays(session),
+        "holidays": _holiday_rows(session),
         "holiday_error": holiday_error,
         "pending_admin_count": _pending_admin_count(session),
         **_financial_totals(session, period or _current_period()),
@@ -175,20 +198,22 @@ async def update_fee_due_day(
     return RedirectResponse(url="/settings", status_code=status.HTTP_303_SEE_OTHER)
 
 
-@router.post("/holidays")
-async def mark_holiday_submit(
+@router.post("/holidays/today")
+async def mark_today_holiday(
     request: Request,
-    holiday_date: date = Form(...),
-    reason: Optional[str] = Form(None),
     session: Session = Depends(get_session),
     admin: AdminUser = Depends(require_super_admin),
 ):
-    # Registered before POST /{attendance_session} below for the same
-    # routing reason as /fee-due-day above — "holidays" would otherwise
-    # try to match that route's AttendanceSession path parameter and fail
-    # enum validation before reaching this handler.
+    # /holidays/today is two path segments, so it can't collide with
+    # POST /{attendance_session} below regardless of registration order
+    # (unlike /fee-due-day, that route only ever matches a single segment).
+    #
+    # Today-only, no reason field: the confirm popup in settings/list.html
+    # is the entire input surface for this — one click, one day, per the
+    # product decision to keep this a single-purpose "close school today"
+    # button rather than a general-purpose date-picker form.
     try:
-        mark_holiday(session, holiday_date, reason, marked_by_id=admin.id)
+        mark_holiday(session, school_today(), None, marked_by_id=admin.id)
     except ValueError as exc:
         session.rollback()
         return templates.TemplateResponse(

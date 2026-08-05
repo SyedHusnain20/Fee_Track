@@ -30,6 +30,7 @@ from app.models.fee_cycle import FeeCycle
 from app.models.student import Student
 from app.services.audit import write_audit_log
 from app.services.fee_cycle_generation import generate_fee_cycles
+from app.services.notifications import create_fee_notification
 
 router = APIRouter(prefix="/fee-cycles", tags=["fee-cycles"])
 templates = Jinja2Templates(directory="app/templates")
@@ -233,6 +234,15 @@ async def mark_paid(
             before_value=before,
             after_value=_snapshot(cycle),
         )
+
+        # Surfaced to super admins via the navbar bell — see
+        # app.services.notifications. Student is looked up here (no ORM
+        # relationship traversal needed elsewhere on this path) same as
+        # view_invoice() above does for the same cycle.student_id.
+        student = session.get(Student, cycle.student_id)
+        if student:
+            create_fee_notification(session, cycle, student, admin)
+
         session.commit()
 
     # show_invoice tells the destination page (fee-cycles list or student

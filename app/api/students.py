@@ -58,6 +58,7 @@ from app.models.fee_cycle import FeeCycle
 from app.models.student import Student
 from app.services.audit import write_audit_log
 from app.services.fee_settings import get_fee_due_day
+from app.services.holidays import get_holiday_dates_in_range
 from app.services.fees import (
     apply_discount,
     compute_student_fee_breakdown,
@@ -191,6 +192,8 @@ def build_student_detail_context(
             )
         ).all()
 
+    holiday_dates = get_holiday_dates_in_range(session, last_7_days[0], last_7_days[-1])
+
     present_school_dates = {
         r.scan_date 
         for r in recent_attendance 
@@ -205,14 +208,16 @@ def build_student_detail_context(
     school_attendance_strip = [
         {
             "date": d, 
-            "present": d in present_school_dates
+            "present": d in present_school_dates,
+            "is_holiday": d in holiday_dates,
         } 
         for d in last_7_days
     ]
     academy_attendance_strip = [
         {
             "date": d, 
-            "present": d in present_academy_dates
+            "present": d in present_academy_dates,
+            "is_holiday": d in holiday_dates,
         } 
             for d in last_7_days
     ]
