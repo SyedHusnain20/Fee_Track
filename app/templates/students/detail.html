@@ -2,11 +2,11 @@
 {% block title %}{{ student.name }} — Fee Track Admin{% endblock %}
 {% block content %}
 
-<div class="flex items-center justify-between mb-6">
+<div class="flex flex-wrap items-start justify-between gap-4 mb-6">
     <div class="flex items-center gap-4">
-        <img src="/students/{{ student.id }}/qr-code.png" alt="QR code" class="w-16 h-16 border border-slate-200 rounded">
+        <img src="/students/{{ student.id }}/qr-code.png" alt="QR code" class="w-14 h-14 sm:w-16 sm:h-16 border border-slate-200 rounded shrink-0">
         <div>
-            <h1 class="text-xl font-semibold text-slate-900">{{ student.name }}</h1>
+            <h1 class="text-lg sm:text-xl font-semibold text-slate-900">{{ student.name }}</h1>
             <p class="text-sm text-slate-500">
                 Roll <span class="font-mono">{{ student.roll_number }}</span> ·
                 {{ student.class_level.name }} ·
@@ -35,9 +35,9 @@
     {% if show_school_attendance %}
     <div class="{% if show_academy_attendance %}mb-4{% endif %}">
         <div class="text-xs text-slate-500 mb-1.5">School</div>
-        <div class="flex gap-2">
+        <div class="flex gap-2 overflow-x-auto pb-1">
             {% for day in school_attendance_strip %}
-            <div class="flex flex-col items-center">
+            <div class="flex flex-col items-center shrink-0">
                 <span class="text-[10px] text-slate-400 mb-1">{{ day.date.strftime('%a') }}</span>
                 {% if day.is_holiday %}
                 <div class="w-7 h-7 rounded bg-yellow-100 border border-yellow-300 flex items-center justify-center text-yellow-700 text-sm font-medium" title="{{ day.date }} — holiday">H</div>
@@ -55,9 +55,9 @@
     {% if show_academy_attendance %}
     <div>
         <div class="text-xs text-slate-500 mb-1.5">Academy</div>
-        <div class="flex gap-2">
+        <div class="flex gap-2 overflow-x-auto pb-1">
             {% for day in academy_attendance_strip %}
-            <div class="flex flex-col items-center">
+            <div class="flex flex-col items-center shrink-0">
                 <span class="text-[10px] text-slate-400 mb-1">{{ day.date.strftime('%a') }}</span>
                 {% if day.is_holiday %}
                 <div class="w-7 h-7 rounded bg-yellow-100 border border-yellow-300 flex items-center justify-center text-yellow-700 text-sm font-medium" title="{{ day.date }} — holiday">H</div>
@@ -82,7 +82,8 @@
             <div class="px-4 py-3 border-b border-slate-200">
                 <h2 class="text-sm font-semibold text-slate-900">Active enrollments</h2>
             </div>
-            <table class="w-full text-sm">
+            <div class="overflow-x-auto">
+            <table class="w-full text-sm min-w-[420px]">
                 <thead class="bg-slate-50 text-left text-slate-500">
                     <tr>
                         <th class="px-4 py-2 font-medium">Category</th>
@@ -114,6 +115,7 @@
                     {% endfor %}
                 </tbody>
             </table>
+            </div>
             <div class="px-4 py-3 border-t border-slate-200 bg-slate-50 space-y-1">
                 <div class="flex items-center justify-between text-sm">
                     <span class="text-slate-500">Subtotal</span>
@@ -144,7 +146,8 @@
             <div class="px-4 py-3 border-b border-slate-200">
                 <h2 class="text-sm font-semibold text-slate-900">Fee history</h2>
             </div>
-            <table class="w-full text-sm">
+            <div class="overflow-x-auto">
+            <table class="w-full text-sm min-w-[520px]">
                 <thead class="bg-slate-50 text-left text-slate-500">
                     <tr>
                         <th class="px-4 py-2 font-medium">Period</th>
@@ -191,6 +194,7 @@
                     {% endfor %}
                 </tbody>
             </table>
+            </div>
         </div>
 
         {% if past_enrollments %}
@@ -198,7 +202,8 @@
             <div class="px-4 py-3 border-b border-slate-200">
                 <h2 class="text-sm font-semibold text-slate-900">Enrollment history</h2>
             </div>
-            <table class="w-full text-sm">
+            <div class="overflow-x-auto">
+            <table class="w-full text-sm min-w-[320px]">
                 <tbody class="divide-y divide-slate-100">
                     {% for e in past_enrollments %}
                     <tr class="text-slate-500">
@@ -208,6 +213,7 @@
                     {% endfor %}
                 </tbody>
             </table>
+            </div>
         </div>
         {% endif %}
 
@@ -241,7 +247,7 @@
 
 </div>
 
-<dialog id="invoice-modal" class="rounded-xl p-0 backdrop:bg-slate-900/50 w-full max-w-2xl">
+<dialog id="invoice-modal" class="rounded-xl p-0 backdrop:bg-slate-900/50 w-[95vw] sm:w-full max-w-2xl">
     <div class="flex justify-end p-2 border-b border-slate-200">
         <button type="button" onclick="document.getElementById('invoice-modal').close()"
                 class="text-slate-400 hover:text-slate-700 text-sm px-2 py-1">&times; Close</button>

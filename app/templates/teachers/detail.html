@@ -2,11 +2,11 @@
 {% block title %}{{ teacher.name }} — Fee Track Admin{% endblock %}
 {% block content %}
 
-<div class="flex items-center justify-between mb-6">
+<div class="flex flex-wrap items-start justify-between gap-4 mb-6">
     <div class="flex items-center gap-4">
-        <img src="/teachers/{{ teacher.id }}/qr-code.png" alt="QR code" class="w-16 h-16 border border-slate-200 rounded">
+        <img src="/teachers/{{ teacher.id }}/qr-code.png" alt="QR code" class="w-14 h-14 sm:w-16 sm:h-16 border border-slate-200 rounded shrink-0">
         <div>
-            <h1 class="text-xl font-semibold text-slate-900">{{ teacher.name }}</h1>
+            <h1 class="text-lg sm:text-xl font-semibold text-slate-900">{{ teacher.name }}</h1>
             <p class="text-sm text-slate-500">
                 Staff ID <span class="font-mono">{{ teacher.staff_id }}</span> ·
                 {{ teacher.designation or "—" }} ·

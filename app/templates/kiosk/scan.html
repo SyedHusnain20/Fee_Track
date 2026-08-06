@@ -6,15 +6,15 @@
     <title>Fee Track — Attendance Kiosk</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="min-h-screen bg-slate-900 text-white flex flex-col items-center justify-center p-6" onclick="focusInput()">
+<body class="min-h-screen bg-slate-900 text-white flex flex-col items-center justify-center p-4 sm:p-6 pb-10" onclick="focusInput()">
 
     <div class="w-full max-w-md text-center">
-        <h1 class="text-2xl font-semibold mb-1">Fee Track Attendance</h1>
-        <p class="text-slate-400 text-sm mb-8">Scan a student or teacher ID</p>
+        <h1 class="text-xl sm:text-2xl font-semibold mb-1">Fee Track Attendance</h1>
+        <p class="text-slate-400 text-sm mb-6 sm:mb-8">Scan a student or teacher ID</p>
 
-        <div class="mb-8">
+        <div class="mb-6 sm:mb-8">
             <label class="block text-sm text-slate-400 mb-2">Current session</label>
-            <select id="session-select" class="w-full rounded-lg bg-slate-800 border border-slate-700 text-white text-lg px-4 py-3 text-center">
+            <select id="session-select" class="w-full rounded-lg bg-slate-800 border border-slate-700 text-white text-base sm:text-lg px-4 py-3 text-center">
                 {% for value, label in sessions %}
                 <option value="{{ value }}">{{ label }}</option>
                 {% endfor %}
@@ -26,15 +26,15 @@
              trailing Enter to whatever element currently has focus. -->
         <input type="text" id="scan-input" autocomplete="off" class="opacity-0 absolute -z-10 pointer-events-none" autofocus>
 
-        <div id="result" class="rounded-xl p-8 min-h-[180px] flex flex-col items-center justify-center bg-slate-800 border border-slate-700 transition-colors">
-            <div id="result-icon" class="text-5xl mb-3">📷</div>
-            <div id="result-text" class="text-lg text-slate-400">Ready to scan</div>
+        <div id="result" class="rounded-xl p-6 sm:p-8 min-h-[150px] sm:min-h-[180px] flex flex-col items-center justify-center bg-slate-800 border border-slate-700 transition-colors">
+            <div id="result-icon" class="text-4xl sm:text-5xl mb-3">📷</div>
+            <div id="result-text" class="text-base sm:text-lg text-slate-400">Ready to scan</div>
         </div>
 
         <p class="text-xs text-slate-600 mt-6">Set the session above before scanning a batch of arrivals.</p>
     </div>
 
-    <div class="fixed bottom-2 inset-x-0 text-center text-xs text-slate-600">
+    <div class="fixed bottom-2 inset-x-0 text-center text-xs text-slate-600 px-4">
         Powered by R&amp;R Digital Solutions
     </div>
 
@@ -61,7 +61,7 @@
         function resetResult() {
             resultIcon.textContent = '📷';
             resultText.textContent = 'Ready to scan';
-            resultBox.className = 'rounded-xl p-8 min-h-[180px] flex flex-col items-center justify-center bg-slate-800 border border-slate-700 transition-colors';
+            resultBox.className = 'rounded-xl p-6 sm:p-8 min-h-[150px] sm:min-h-[180px] flex flex-col items-center justify-center bg-slate-800 border border-slate-700 transition-colors';
         }
 
         function showResult(kind, iconChar, text) {
@@ -73,7 +73,7 @@
                 neutral: 'bg-sky-900 border-sky-700',
                 error: 'bg-red-900 border-red-700',
             };
-            resultBox.className = 'rounded-xl p-8 min-h-[180px] flex flex-col items-center justify-center border transition-colors ' + colors[kind];
+            resultBox.className = 'rounded-xl p-6 sm:p-8 min-h-[150px] sm:min-h-[180px] flex flex-col items-center justify-center border transition-colors ' + colors[kind];
             clearTimeout(resetTimer);
             resetTimer = setTimeout(resetResult, 4000);
         }

@@ -2,35 +2,34 @@
 {% block title %}Dashboard — Fee Track Admin{% endblock %}
 {% block content %}
 
-<h1 class="text-xl font-semibold text-slate-900 mb-1">Welcome, {{ admin.name }}</h1>
-<p class="text-sm text-slate-500 mb-6">Here's where things stand.</p>
+<h1 class="text-lg sm:text-xl font-semibold text-slate-900 mb-1">Welcome, {{ admin.name }}</h1>
+<p class="text-sm text-slate-500 mb-4 sm:mb-6">Here's where things stand.</p>
 
-<form method="get" action="/students" class="mb-8 max-w-md">
+<form method="get" action="/students" class="mb-6 sm:mb-8 max-w-md">
     <label class="block text-xs font-medium text-slate-700 mb-1">Search students</label>
     <div class="flex gap-2">
         <input type="text" name="search" placeholder="Roll number or name..."
-               class="flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-800 focus:border-slate-800">
-        <button type="submit" class="rounded-md bg-slate-800 text-white text-sm font-medium px-4 py-2 hover:bg-slate-700">
+               class="flex-1 min-w-0 rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-800 focus:border-slate-800">
+        <button type="submit" class="shrink-0 rounded-md bg-slate-800 text-white text-sm font-medium px-4 py-2 hover:bg-slate-700">
             Search
         </button>
     </div>
 </form>
 
-<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-    <a href="/students?group=school" class="block bg-white border border-slate-200 rounded-xl p-6 hover:border-slate-400 transition-colors">
-        <div class="text-3xl font-semibold text-slate-900">{{ active_school_students }}</div>
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+    <a href="/students?group=school" class="block bg-white border border-slate-200 rounded-xl p-4 sm:p-6 hover:border-slate-400 transition-colors">
+        <div class="text-2xl sm:text-3xl font-semibold text-slate-900">{{ active_school_students }}</div>
         <div class="text-sm text-slate-500 mt-1">School students</div>
     </a>
-    <a href="/students?group=academy" class="block bg-white border border-slate-200 rounded-xl p-6 hover:border-slate-400 transition-colors">
-        <div class="text-3xl font-semibold text-slate-900">{{ active_academy_students }}</div>
+    <a href="/students?group=academy" class="block bg-white border border-slate-200 rounded-xl p-4 sm:p-6 hover:border-slate-400 transition-colors">
+        <div class="text-2xl sm:text-3xl font-semibold text-slate-900">{{ active_academy_students }}</div>
         <div class="text-sm text-slate-500 mt-1">Academy students</div>
-        <div class="text-xs text-slate-400 mt-0.5">Coaching, English, Computer</div>
     </a>
-    <a href="/teachers" class="block bg-white border border-slate-200 rounded-xl p-6 hover:border-slate-400 transition-colors">
-        <div class="text-3xl font-semibold text-slate-900">{{ active_teachers }}</div>
+    <a href="/teachers" class="block bg-white border border-slate-200 rounded-xl p-4 sm:p-6 hover:border-slate-400 transition-colors">
+        <div class="text-2xl sm:text-3xl font-semibold text-slate-900">{{ active_teachers }}</div>
         <div class="text-sm text-slate-500 mt-1">Active teachers</div>
     </a>
-    <a href="/kiosk" target="_blank" class="block bg-slate-800 rounded-xl p-6 hover:bg-slate-700 transition-colors">
+    <a href="/kiosk" target="_blank" class="block bg-slate-800 rounded-xl p-4 sm:p-6 hover:bg-slate-700 transition-colors">
         <div class="text-lg font-semibold text-white">Open kiosk ↗</div>
         <div class="text-sm text-slate-400 mt-1">Attendance scan page — bookmark this on the gate device</div>
     </a>
@@ -43,7 +42,7 @@
 </div>
 {% endif %}
 
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8">
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6 sm:mt-8">
 
     <div>
         <h2 class="text-sm font-semibold text-slate-700 mb-3">Today's attendance</h2>
@@ -65,8 +64,8 @@
 
     <div>
         <h2 class="text-sm font-semibold text-slate-700 mb-3">Last 10 Attendance scans</h2>
-        <div class="bg-white border border-slate-200 rounded-xl overflow-hidden">
-            <table class="w-full text-sm">
+        <div class="bg-white border border-slate-200 rounded-xl overflow-x-auto">
+            <table class="w-full text-sm min-w-[420px]">
                 <thead class="bg-slate-50 border-b border-slate-200 text-left text-slate-500">
                     <tr>
                         <th class="px-4 py-2 font-medium">Name</th>

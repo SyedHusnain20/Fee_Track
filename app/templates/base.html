@@ -8,24 +8,27 @@
 </head>
 <body class="min-h-screen bg-slate-50">
 
-    <nav class="bg-slate-800 text-white">
+    <nav class="bg-slate-800 text-white relative z-40">
         <div class="max-w-6xl mx-auto px-4 flex items-center justify-between h-14">
             <div class="flex items-center gap-6">
-                <a href="/dashboard" class="font-semibold flex items-center gap-2">
+                <a href="/dashboard" class="font-semibold flex items-center gap-2 shrink-0">
                     <span class="inline-flex items-center justify-center w-7 h-7 rounded bg-white text-slate-800 text-sm font-bold">F</span>
-                    Fee Track
+                    <span>Fee Track</span>
                 </a>
-                <a href="/students" class="text-sm text-slate-300 hover:text-white">Students</a>
-                <a href="/teachers" class="text-sm text-slate-300 hover:text-white">Teachers</a>
-                <a href="/fee-cycles" class="text-sm text-slate-300 hover:text-white">Fee Cycles</a>
-                <a href="/attendance/manual" class="text-sm text-slate-300 hover:text-white">Manual Attendance</a>
-                {% if admin and admin.is_super_admin %}
-                <a href="/settings" class="text-sm text-slate-300 hover:text-white">Settings</a>
-                {% endif %}
-                <a href="/reports" class="text-sm text-slate-300 hover:text-white">Reports</a>
-                <a href="/archive" class="text-sm text-slate-300 hover:text-white">Archive</a>
+                <!-- Desktop nav links -->
+                <div class="hidden lg:flex items-center gap-6">
+                    <a href="/students" class="text-sm text-slate-300 hover:text-white">Students</a>
+                    <a href="/teachers" class="text-sm text-slate-300 hover:text-white">Teachers</a>
+                    <a href="/fee-cycles" class="text-sm text-slate-300 hover:text-white">Fee Cycles</a>
+                    <a href="/attendance/manual" class="text-sm text-slate-300 hover:text-white">Manual Attendance</a>
+                    {% if admin and admin.is_super_admin %}
+                    <a href="/settings" class="text-sm text-slate-300 hover:text-white">Settings</a>
+                    {% endif %}
+                    <a href="/reports" class="text-sm text-slate-300 hover:text-white">Reports</a>
+                    <a href="/archive" class="text-sm text-slate-300 hover:text-white">Archive</a>
+                </div>
             </div>
-            <div class="flex items-center gap-4">
+            <div class="flex items-center gap-2 sm:gap-4">
                 {% if admin and admin.is_super_admin %}
                 <div class="relative">
                     <button type="button" id="notif-bell-btn" onclick="toggleNotifDropdown()"
@@ -35,7 +38,7 @@
                         </svg>
                         <span id="notif-badge" class="hidden absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center"></span>
                     </button>
-                    <div id="notif-dropdown" class="hidden absolute right-0 mt-2 w-80 bg-white text-slate-800 rounded-lg shadow-lg border border-slate-200 z-50 max-h-96 overflow-y-auto">
+                    <div id="notif-dropdown" class="hidden absolute right-0 mt-2 w-[85vw] max-w-80 sm:w-80 bg-white text-slate-800 rounded-lg shadow-lg border border-slate-200 z-50 max-h-96 overflow-y-auto">
                         <div class="px-3 py-2 border-b border-slate-100 text-xs font-semibold text-slate-500">
                             Fee Payment Notifications
                         </div>
@@ -46,15 +49,71 @@
                 </div>
                 {% endif %}
                 {% if admin %}
-                <span class="text-sm text-slate-300">{{ admin.name }}{% if admin.is_super_admin %} · Super Admin{% endif %}</span>
+                <span class="hidden md:inline text-sm text-slate-300">{{ admin.name }}{% if admin.is_super_admin %} · Super Admin{% endif %}</span>
                 {% endif %}
-                <form method="post" action="/logout">
+                <form method="post" action="/logout" class="hidden lg:block">
                     <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
                     <button type="submit" class="text-sm text-slate-300 hover:text-white">Log out</button>
                 </form>
+                <!-- Hamburger toggle (mobile/tablet only) -->
+                <button type="button" id="mobile-menu-btn" onclick="toggleMobileMenu()"
+                        class="lg:hidden text-slate-300 hover:text-white p-1" aria-label="Toggle menu" aria-expanded="false">
+                    <svg id="menu-icon-open" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-6 h-6">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5M3.75 17.25h16.5" />
+                    </svg>
+                    <svg id="menu-icon-close" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-6 h-6 hidden">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- Mobile/tablet slide-down menu -->
+        <div id="mobile-menu" class="hidden lg:hidden border-t border-slate-700 bg-slate-800 max-h-[calc(100vh-3.5rem)] overflow-y-auto">
+            <div class="px-4 py-3 flex flex-col gap-1">
+                <a href="/students" class="block px-2 py-2.5 rounded text-sm text-slate-200 hover:bg-slate-700 hover:text-white">Students</a>
+                <a href="/teachers" class="block px-2 py-2.5 rounded text-sm text-slate-200 hover:bg-slate-700 hover:text-white">Teachers</a>
+                <a href="/fee-cycles" class="block px-2 py-2.5 rounded text-sm text-slate-200 hover:bg-slate-700 hover:text-white">Fee Cycles</a>
+                <a href="/attendance/manual" class="block px-2 py-2.5 rounded text-sm text-slate-200 hover:bg-slate-700 hover:text-white">Manual Attendance</a>
+                {% if admin and admin.is_super_admin %}
+                <a href="/settings" class="block px-2 py-2.5 rounded text-sm text-slate-200 hover:bg-slate-700 hover:text-white">Settings</a>
+                {% endif %}
+                <a href="/reports" class="block px-2 py-2.5 rounded text-sm text-slate-200 hover:bg-slate-700 hover:text-white">Reports</a>
+                <a href="/archive" class="block px-2 py-2.5 rounded text-sm text-slate-200 hover:bg-slate-700 hover:text-white">Archive</a>
+                <div class="border-t border-slate-700 mt-2 pt-2">
+                    {% if admin %}
+                    <div class="px-2 py-1.5 text-xs text-slate-400">{{ admin.name }}{% if admin.is_super_admin %} · Super Admin{% endif %}</div>
+                    {% endif %}
+                    <form method="post" action="/logout" class="px-0">
+                        <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
+                        <button type="submit" class="w-full text-left px-2 py-2.5 rounded text-sm text-slate-200 hover:bg-slate-700 hover:text-white">Log out</button>
+                    </form>
+                </div>
             </div>
         </div>
     </nav>
+
+    <script>
+        function toggleMobileMenu() {
+            const menu = document.getElementById('mobile-menu');
+            const openIcon = document.getElementById('menu-icon-open');
+            const closeIcon = document.getElementById('menu-icon-close');
+            const btn = document.getElementById('mobile-menu-btn');
+            const isHidden = menu.classList.contains('hidden');
+            menu.classList.toggle('hidden');
+            openIcon.classList.toggle('hidden');
+            closeIcon.classList.toggle('hidden');
+            btn.setAttribute('aria-expanded', isHidden ? 'true' : 'false');
+        }
+
+        // Close the mobile menu automatically if the viewport grows into desktop size.
+        window.addEventListener('resize', function () {
+            const menu = document.getElementById('mobile-menu');
+            if (window.innerWidth >= 1024 && menu && !menu.classList.contains('hidden')) {
+                toggleMobileMenu();
+            }
+        });
+    </script>
 
     {% if admin and admin.is_super_admin %}
     <script>
@@ -119,7 +178,7 @@
     </script>
     {% endif %}
 
-    <main class="max-w-6xl mx-auto px-4 py-8">
+    <main class="max-w-6xl mx-auto px-4 py-6 sm:py-8">
         {% block content %}{% endblock %}
     </main>
 

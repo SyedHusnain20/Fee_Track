@@ -2,15 +2,15 @@
 {% block title %}Teachers — Fee Track Admin{% endblock %}
 {% block content %}
 
-<div class="flex items-center justify-between mb-6">
-    <h1 class="text-xl font-semibold text-slate-900">Teachers</h1>
+<div class="flex flex-wrap items-center justify-between gap-3 mb-6">
+    <h1 class="text-lg sm:text-xl font-semibold text-slate-900">Teachers</h1>
     <a href="/teachers/new" class="rounded-md bg-slate-800 text-white text-sm font-medium px-4 py-2 hover:bg-slate-700">
         + Add teacher
     </a>
 </div>
 
-<div class="bg-white border border-slate-200 rounded-xl overflow-hidden">
-    <table class="w-full text-sm">
+<div class="bg-white border border-slate-200 rounded-xl overflow-x-auto">
+    <table class="w-full text-sm min-w-[520px]">
         <thead class="bg-slate-50 border-b border-slate-200 text-left text-slate-500">
             <tr>
                 <th class="px-4 py-3 font-medium">Staff ID</th>
