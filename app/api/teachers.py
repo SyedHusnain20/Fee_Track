@@ -9,9 +9,23 @@ Phase 1 (teacher profile expansion): father_name, contact, qualification,
 designation, salary, and the four teaches_* subject flags are required on
 every create/update submission from here on, even though they're nullable
 in the DB for the sake of teacher rows that predate this migration.
+
+Phase 4 (School/Academy-only enrollment): the form now only collects
+teaches_school and teaches_coaching ("Academy") — teaches_english and
+teaches_computer are no longer exposed anywhere in the UI and are always
+written as False for teachers created/edited from here on. The columns
+themselves are untouched in the DB (existing rows keep whatever values
+they had; no migration), they're just no longer settable. A teacher must
+have at least one of teaches_school/teaches_coaching checked — enforced
+here, not in the DB, matching this codebase's pattern of validating
+"required going forward" fields in the API layer rather than the schema.
+
+date_joined is no longer a form field either. It's set automatically to
+school_today() on creation and left untouched on edits (it has no
+UI-editable purpose once set — see app.services.teacher_salary for how
+it's used).
 """
 
-from datetime import date
 from decimal import Decimal, InvalidOperation
 from typing import Optional
 
@@ -23,6 +37,7 @@ from sqlmodel import Session, select
 
 from app.api.deps import get_current_admin
 from app.core.database import get_session
+from app.core.timezone import school_today
 from app.models.admin_user import AdminUser
 from app.models.enums import Qualification
 from app.models.teacher import Teacher
@@ -40,14 +55,16 @@ QUALIFICATION_LABELS = {
     Qualification.PHD: "PhD",
 }
 
-# Profile-page display of the four teaches_* booleans — kept here rather
-# than in the template so the label wording only needs to change in one
-# place (matches the pattern used for FeeCategory labels in students.py).
+# Profile-page display of the teaches_* booleans — kept here rather than
+# in the template so the label wording only needs to change in one place
+# (matches the pattern used for FeeCategory labels in students.py).
+# teaches_english/teaches_computer are deliberately excluded as of Phase 4
+# (School/Academy-only enrollment) — the columns still exist for any
+# legacy rows that have them set, but they're no longer part of the
+# UI-facing "what does this teacher teach" story.
 SUBJECTS_TAUGHT = [
     ("teaches_school", "School"),
-    ("teaches_coaching", "Coaching"),
-    ("teaches_english", "Language (English)"),
-    ("teaches_computer", "Computer"),
+    ("teaches_coaching", "Academy"),
 ]
 
 
@@ -73,6 +90,14 @@ def _parse_qualification(raw: str) -> Qualification:
         return Qualification(raw)
     except ValueError:
         raise ValueError("Select a valid qualification.")
+
+
+def _require_at_least_one_category(teaches_school: bool, teaches_coaching: bool) -> None:
+    """A teacher must be enrolled in School and/or Academy — there's no
+    longer any other category to fall back on now that English/Computer
+    are gone from the form."""
+    if not teaches_school and not teaches_coaching:
+        raise ValueError("Select at least one of School or Academy.")
 
 
 def _form_error(
@@ -119,17 +144,18 @@ async def create_teacher(
     qualification: str = Form(...),
     designation: str = Form(...),
     salary: str = Form(...),
-    date_joined: date = Form(...),
     teaches_school: Optional[str] = Form(default=None),
     teaches_coaching: Optional[str] = Form(default=None),
-    teaches_english: Optional[str] = Form(default=None),
-    teaches_computer: Optional[str] = Form(default=None),
     session: Session = Depends(get_session),
     admin: AdminUser = Depends(get_current_admin),
 ):
+    teaches_school_value = teaches_school is not None
+    teaches_coaching_value = teaches_coaching is not None
+
     try:
         salary_value = _parse_salary(salary)
         qualification_value = _parse_qualification(qualification)
+        _require_at_least_one_category(teaches_school_value, teaches_coaching_value)
     except ValueError as exc:
         return _form_error(request, admin, None, str(exc))
 
@@ -143,11 +169,11 @@ async def create_teacher(
         qualification=qualification_value,
         designation=designation.strip(),
         salary=salary_value,
-        date_joined=date_joined,
-        teaches_school=teaches_school is not None,
-        teaches_coaching=teaches_coaching is not None,
-        teaches_english=teaches_english is not None,
-        teaches_computer=teaches_computer is not None,
+        date_joined=school_today(),
+        teaches_school=teaches_school_value,
+        teaches_coaching=teaches_coaching_value,
+        teaches_english=False,
+        teaches_computer=False,
         qr_code=generate_qr_token(),
         is_active=True,
     )
@@ -229,11 +255,8 @@ async def update_teacher(
     qualification: str = Form(...),
     designation: str = Form(...),
     salary: str = Form(...),
-    date_joined: date = Form(...),
     teaches_school: Optional[str] = Form(default=None),
     teaches_coaching: Optional[str] = Form(default=None),
-    teaches_english: Optional[str] = Form(default=None),
-    teaches_computer: Optional[str] = Form(default=None),
     session: Session = Depends(get_session),
     admin: AdminUser = Depends(get_current_admin),
 ):
@@ -241,27 +264,30 @@ async def update_teacher(
     if not teacher:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Teacher not found.")
 
+    teaches_school_value = teaches_school is not None
+    teaches_coaching_value = teaches_coaching is not None
+
     try:
         salary_value = _parse_salary(salary)
         qualification_value = _parse_qualification(qualification)
+        _require_at_least_one_category(teaches_school_value, teaches_coaching_value)
     except ValueError as exc:
         return _form_error(request, admin, teacher, str(exc))
 
-    # staff_id and qr_code stay immutable once generated, matching Section
-    # 7's "system generates" boundary — everything else here is editable,
-    # and saving this form is what keeps the teacher's stored profile in
-    # sync with whatever the admin just typed.
+    # staff_id, qr_code, and date_joined stay immutable once set — the
+    # first two per Section 7's "system generates" boundary, date_joined
+    # because it's no longer an editable form field (see module
+    # docstring). Everything else here is editable, and saving this form
+    # is what keeps the teacher's stored profile in sync with whatever
+    # the admin just typed.
     teacher.name = name.strip()
     teacher.father_name = father_name.strip()
     teacher.contact = contact.strip()
     teacher.qualification = qualification_value
     teacher.designation = designation.strip()
     teacher.salary = salary_value
-    teacher.date_joined = date_joined
-    teacher.teaches_school = teaches_school is not None
-    teacher.teaches_coaching = teaches_coaching is not None
-    teacher.teaches_english = teaches_english is not None
-    teacher.teaches_computer = teaches_computer is not None
+    teacher.teaches_school = teaches_school_value
+    teacher.teaches_coaching = teaches_coaching_value
     session.add(teacher)
     session.commit()
     return RedirectResponse(url="/teachers", status_code=status.HTTP_303_SEE_OTHER)

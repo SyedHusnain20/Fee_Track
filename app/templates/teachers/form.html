@@ -77,18 +77,14 @@
         </p>
     </div>
 
-    <div>
-        <label for="date_joined" class="block text-sm font-medium text-slate-700 mb-1">Date joined</label>
-        <input type="date" name="date_joined" id="date_joined" required
-               value="{{ teacher.date_joined.isoformat() if teacher and teacher.date_joined else '' }}"
-               class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-800 focus:border-slate-800">
-        <p class="text-xs text-slate-400 mt-1">
-            Used to start the monthly salary calculation from the right day — a teacher hired mid-month isn't counted absent for days before they joined.
-        </p>
-    </div>
+    {% if not teacher %}
+    <p class="text-xs text-slate-400 -mt-2">
+        Date joined is set automatically to today when the teacher is created.
+    </p>
+    {% endif %}
 
     <div>
-        <label class="block text-sm font-medium text-slate-700 mb-2">Teaches</label>
+        <label class="block text-sm font-medium text-slate-700 mb-2">Teaches <span class="text-slate-400 font-normal">(select at least one)</span></label>
         <div class="space-y-2">
             <label class="flex items-center gap-2 text-sm text-slate-700">
                 <input type="checkbox" name="teaches_school" {% if teacher and teacher.teaches_school %}checked{% endif %}
@@ -100,17 +96,10 @@
                        class="rounded border-slate-300 text-slate-800 focus:ring-slate-800">
                 Academy
             </label>
-            <label class="flex items-center gap-2 text-sm text-slate-700">
-                <input type="checkbox" name="teaches_english" {% if teacher and teacher.teaches_english %}checked{% endif %}
-                       class="rounded border-slate-300 text-slate-800 focus:ring-slate-800">
-                Language (English)
-            </label>
-            <label class="flex items-center gap-2 text-sm text-slate-700">
-                <input type="checkbox" name="teaches_computer" {% if teacher and teacher.teaches_computer %}checked{% endif %}
-                       class="rounded border-slate-300 text-slate-800 focus:ring-slate-800">
-                Computer
-            </label>
         </div>
+        <p class="text-xs text-slate-400 mt-1">
+            If enrolled in both, the teacher scans attendance separately for School and Academy, and salary is calculated on each half independently.
+        </p>
     </div>
 
     <div class="flex items-center gap-3 pt-2">

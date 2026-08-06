@@ -58,6 +58,23 @@
                     </dd>
                 </div>
                 <div>
+                    <dt class="text-xs text-slate-500 mb-0.5">This month's absences</dt>
+                    <dd class="text-sm text-slate-900">
+                        {% if salary_breakdown.school and salary_breakdown.academy %}
+                        School: <span class="text-red-700 font-medium">{{ salary_breakdown.school.absent_days }}</span> ·
+                        Academy: <span class="text-red-700 font-medium">{{ salary_breakdown.academy.absent_days }}</span>
+                        {% elif salary_breakdown.school %}
+                        <span class="text-red-700 font-medium">{{ salary_breakdown.school.absent_days }}</span> (School)
+                        {% elif salary_breakdown.academy %}
+                        <span class="text-red-700 font-medium">{{ salary_breakdown.academy.absent_days }}</span> (Academy)
+                        {% elif salary_breakdown.combined %}
+                        <span class="text-red-700 font-medium">{{ salary_breakdown.combined.absent_days }}</span>
+                        {% else %}
+                        —
+                        {% endif %}
+                    </dd>
+                </div>
+                <div>
                     <dt class="text-xs text-slate-500 mb-0.5">Monthly salary</dt>
                     <dd class="text-sm text-slate-900">
                         {% if teacher.salary is not none %}Rs {{ "%.2f"|format(teacher.salary) }}{% else %}—{% endif %}
@@ -95,24 +112,79 @@
                     {% if salary_breakdown.is_month_complete %}Full month{% else %}Month in progress — updates daily{% endif %}
                 </p>
             </div>
-            <dl class="px-4 py-4 space-y-3">
-                {% if salary_breakdown.working_days == 0 %}
+            <dl class="px-4 py-4 space-y-4">
+                {% set total_working_days = (salary_breakdown.school.working_days if salary_breakdown.school else 0) + (salary_breakdown.academy.working_days if salary_breakdown.academy else 0) + (salary_breakdown.combined.working_days if salary_breakdown.combined else 0) %}
+                {% if total_working_days == 0 %}
                 <p class="text-sm text-slate-400">
                     No working days counted for this period yet — either the teacher hadn't joined yet during {{ salary_breakdown.period_label }}, or the month has just started.
                 </p>
                 {% else %}
-                <div class="flex items-center justify-between text-sm">
-                    <dt class="text-slate-500">Working days</dt>
-                    <dd class="text-slate-900">{{ salary_breakdown.working_days }}</dd>
+
+                {% if salary_breakdown.school %}
+                <div class="space-y-1.5">
+                    {% if salary_breakdown.academy %}<div class="text-xs font-medium text-slate-500">School (half salary)</div>{% endif %}
+                    <div class="flex items-center justify-between text-sm">
+                        <dt class="text-slate-500">Working days</dt>
+                        <dd class="text-slate-900">{{ salary_breakdown.school.working_days }}</dd>
+                    </div>
+                    <div class="flex items-center justify-between text-sm">
+                        <dt class="text-slate-500">Present</dt>
+                        <dd class="text-green-700 font-medium">{{ salary_breakdown.school.present_days }}</dd>
+                    </div>
+                    <div class="flex items-center justify-between text-sm">
+                        <dt class="text-slate-500">Absent</dt>
+                        <dd class="text-red-700 font-medium">{{ salary_breakdown.school.absent_days }}</dd>
+                    </div>
+                    {% if salary_breakdown.academy %}
+                    <div class="flex items-center justify-between text-xs pt-0.5">
+                        <dt class="text-slate-400">Share net</dt>
+                        <dd class="text-slate-600">{% if salary_breakdown.school.net_salary is not none %}Rs {{ "%.2f"|format(salary_breakdown.school.net_salary) }}{% else %}—{% endif %}</dd>
+                    </div>
+                    {% endif %}
                 </div>
-                <div class="flex items-center justify-between text-sm">
-                    <dt class="text-slate-500">Present</dt>
-                    <dd class="text-green-700 font-medium">{{ salary_breakdown.present_days }}</dd>
+                {% endif %}
+
+                {% if salary_breakdown.academy %}
+                <div class="space-y-1.5 {% if salary_breakdown.school %}pt-3 border-t border-slate-100{% endif %}">
+                    {% if salary_breakdown.school %}<div class="text-xs font-medium text-slate-500">Academy (half salary)</div>{% endif %}
+                    <div class="flex items-center justify-between text-sm">
+                        <dt class="text-slate-500">Working days</dt>
+                        <dd class="text-slate-900">{{ salary_breakdown.academy.working_days }}</dd>
+                    </div>
+                    <div class="flex items-center justify-between text-sm">
+                        <dt class="text-slate-500">Present</dt>
+                        <dd class="text-green-700 font-medium">{{ salary_breakdown.academy.present_days }}</dd>
+                    </div>
+                    <div class="flex items-center justify-between text-sm">
+                        <dt class="text-slate-500">Absent</dt>
+                        <dd class="text-red-700 font-medium">{{ salary_breakdown.academy.absent_days }}</dd>
+                    </div>
+                    {% if salary_breakdown.school %}
+                    <div class="flex items-center justify-between text-xs pt-0.5">
+                        <dt class="text-slate-400">Share net</dt>
+                        <dd class="text-slate-600">{% if salary_breakdown.academy.net_salary is not none %}Rs {{ "%.2f"|format(salary_breakdown.academy.net_salary) }}{% else %}—{% endif %}</dd>
+                    </div>
+                    {% endif %}
                 </div>
-                <div class="flex items-center justify-between text-sm">
-                    <dt class="text-slate-500">Absent</dt>
-                    <dd class="text-red-700 font-medium">{{ salary_breakdown.absent_days }}</dd>
+                {% endif %}
+
+                {% if salary_breakdown.combined %}
+                <div class="space-y-1.5">
+                    <div class="flex items-center justify-between text-sm">
+                        <dt class="text-slate-500">Working days</dt>
+                        <dd class="text-slate-900">{{ salary_breakdown.combined.working_days }}</dd>
+                    </div>
+                    <div class="flex items-center justify-between text-sm">
+                        <dt class="text-slate-500">Present</dt>
+                        <dd class="text-green-700 font-medium">{{ salary_breakdown.combined.present_days }}</dd>
+                    </div>
+                    <div class="flex items-center justify-between text-sm">
+                        <dt class="text-slate-500">Absent</dt>
+                        <dd class="text-red-700 font-medium">{{ salary_breakdown.combined.absent_days }}</dd>
+                    </div>
                 </div>
+                {% endif %}
+
                 <div class="flex items-center justify-between text-sm font-semibold pt-3 border-t border-slate-200">
                     <dt class="text-slate-900">Net salary</dt>
                     <dd class="text-slate-900">
@@ -124,6 +196,8 @@
             <p class="text-xs text-slate-400 px-4 pb-4">
                 {% if teacher.salary is none %}
                 Set this teacher's base salary (Edit profile) to calculate net salary.
+                {% elif salary_breakdown.school and salary_breakdown.academy %}
+                Enrolled in both — salary is split evenly and each half is docked against that category's own attendance, then summed.
                 {% else %}
                 Net salary = base salary &minus; (base salary / 30) &times; absent days. Attendance counted from School/Academy kiosk scans, every day except Sunday.
                 {% endif %}

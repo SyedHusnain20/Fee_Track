@@ -164,17 +164,29 @@ def build_student_detail_context(
         select(FeeCycle).where(FeeCycle.student_id == student.id).order_by(FeeCycle.period.desc())
     ).all()
 
-    # Last-7-days attendance strip, split into School and Academy rows since
-    # a student can be enrolled in both simultaneously and each is tracked
-    # as a separate kiosk session (see the AttendanceSession redesign).
-    # Only shown for a category the student is actually enrolled in —
-    # rendering an all-red strip for a category they were never enrolled
-    # in would read as "absent" rather than "not applicable."
+    # Last-6-active-days attendance strip, split into School and Academy
+    # rows since a student can be enrolled in both simultaneously and each
+    # is tracked as a separate kiosk session (see the AttendanceSession
+    # redesign). Only shown for a category the student is actually
+    # enrolled in — rendering an all-red strip for a category they were
+    # never enrolled in would read as "absent" rather than "not
+    # applicable."
+    #
+    # Sunday is skipped entirely rather than shown as a 7th day — it's not
+    # a working day at all (same "academic day" convention used by
+    # app.services.teacher_salary and the attendance report), so it
+    # carries no attendance signal either way. The strip instead walks
+    # backward from today collecting the 6 most recent non-Sunday calendar
+    # days, so it always shows 6 real active days regardless of how many
+    # Sundays fall in that window.
     today = school_today()
-    last_7_days = [
-            today - timedelta(days=offset) 
-            for offset in range(6, -1, -1)
-    ]# oldest -> newest
+    last_6_active_days: List = []
+    cursor = today
+    while len(last_6_active_days) < 6:
+        if cursor.weekday() != 6:  # Monday=0 ... Sunday=6
+            last_6_active_days.append(cursor)
+        cursor -= timedelta(days=1)
+    last_6_active_days.reverse()  # oldest -> newest
 
     show_school_attendance = any(e.category == FeeCategory.SCHOOL for e in active_enrollments)
     show_academy_attendance = any(
@@ -187,12 +199,12 @@ def build_student_detail_context(
         recent_attendance = session.exec(
             select(AttendanceRecord).where(
                 AttendanceRecord.student_id == student.id,
-                AttendanceRecord.scan_date >= last_7_days[0],
-                AttendanceRecord.scan_date <= last_7_days[-1],
+                AttendanceRecord.scan_date >= last_6_active_days[0],
+                AttendanceRecord.scan_date <= last_6_active_days[-1],
             )
         ).all()
 
-    holiday_dates = get_holiday_dates_in_range(session, last_7_days[0], last_7_days[-1])
+    holiday_dates = get_holiday_dates_in_range(session, last_6_active_days[0], last_6_active_days[-1])
 
     present_school_dates = {
         r.scan_date 
@@ -211,7 +223,7 @@ def build_student_detail_context(
             "present": d in present_school_dates,
             "is_holiday": d in holiday_dates,
         } 
-        for d in last_7_days
+        for d in last_6_active_days
     ]
     academy_attendance_strip = [
         {
@@ -219,7 +231,7 @@ def build_student_detail_context(
             "present": d in present_academy_dates,
             "is_holiday": d in holiday_dates,
         } 
-            for d in last_7_days
+            for d in last_6_active_days
     ]
 
     return {
