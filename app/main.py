@@ -10,6 +10,7 @@ from app.api.enrollments import router as enrollments_router
 from app.api.fee_cycles import router as fee_cycles_router
 from app.api.id_cards import router as id_cards_router
 from app.api.kiosk import router as kiosk_router
+from app.api.notifications import router as notifications_router
 from app.api.reports import router as reports_router
 from app.api.rollover import router as rollover_router
 from app.api.settings import router as settings_router
@@ -33,6 +34,7 @@ app.include_router(kiosk_router)
 app.include_router(attendance_manual_router)
 app.include_router(settings_router)
 app.include_router(reports_router)
+app.include_router(notifications_router)
 app.include_router(rollover_router)
 app.include_router(archive_router)
 

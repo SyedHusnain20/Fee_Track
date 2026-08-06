@@ -39,7 +39,9 @@
             {% for day in school_attendance_strip %}
             <div class="flex flex-col items-center">
                 <span class="text-[10px] text-slate-400 mb-1">{{ day.date.strftime('%a') }}</span>
-                {% if day.present %}
+                {% if day.is_holiday %}
+                <div class="w-7 h-7 rounded bg-yellow-100 border border-yellow-300 flex items-center justify-center text-yellow-700 text-sm font-medium" title="{{ day.date }} — holiday">H</div>
+                {% elif day.present %}
                 <div class="w-7 h-7 rounded bg-green-100 border border-green-300 flex items-center justify-center text-green-700 text-sm font-medium" title="{{ day.date }} — present">✓</div>
                 {% else %}
                 <div class="w-7 h-7 rounded bg-red-100 border border-red-300 flex items-center justify-center text-red-700 text-sm font-medium" title="{{ day.date }} — absent">✕</div>
@@ -57,7 +59,9 @@
             {% for day in academy_attendance_strip %}
             <div class="flex flex-col items-center">
                 <span class="text-[10px] text-slate-400 mb-1">{{ day.date.strftime('%a') }}</span>
-                {% if day.present %}
+                {% if day.is_holiday %}
+                <div class="w-7 h-7 rounded bg-yellow-100 border border-yellow-300 flex items-center justify-center text-yellow-700 text-sm font-medium" title="{{ day.date }} — holiday">H</div>
+                {% elif day.present %}
                 <div class="w-7 h-7 rounded bg-green-100 border border-green-300 flex items-center justify-center text-green-700 text-sm font-medium" title="{{ day.date }} — present">✓</div>
                 {% else %}
                 <div class="w-7 h-7 rounded bg-red-100 border border-red-300 flex items-center justify-center text-red-700 text-sm font-medium" title="{{ day.date }} — absent">✕</div>

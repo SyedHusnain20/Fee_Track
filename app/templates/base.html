@@ -26,6 +26,25 @@
                 <a href="/archive" class="text-sm text-slate-300 hover:text-white">Archive</a>
             </div>
             <div class="flex items-center gap-4">
+                {% if admin and admin.is_super_admin %}
+                <div class="relative">
+                    <button type="button" id="notif-bell-btn" onclick="toggleNotifDropdown()"
+                            class="relative text-slate-300 hover:text-white p-1">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5">
+                            <path fill-rule="evenodd" d="M12 2a6 6 0 0 0-6 6v3.586l-1.707 1.707A1 1 0 0 0 6 13.293V14a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-.707a1 1 0 0 0-.293-.707L16 10.586V8a6 6 0 0 0-4-5.659V2a2 2 0 1 0-4 0v.341A6 6 0 0 0 12 2ZM6 8a6 6 0 0 1 .083-1H6v1Zm3.5 8a2.5 2.5 0 0 0 5 0h-5Z" clip-rule="evenodd" />
+                        </svg>
+                        <span id="notif-badge" class="hidden absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center"></span>
+                    </button>
+                    <div id="notif-dropdown" class="hidden absolute right-0 mt-2 w-80 bg-white text-slate-800 rounded-lg shadow-lg border border-slate-200 z-50 max-h-96 overflow-y-auto">
+                        <div class="px-3 py-2 border-b border-slate-100 text-xs font-semibold text-slate-500">
+                            Fee Payment Notifications
+                        </div>
+                        <div id="notif-list" class="divide-y divide-slate-100">
+                            <div class="px-3 py-4 text-sm text-slate-400 text-center">Loading...</div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
                 {% if admin %}
                 <span class="text-sm text-slate-300">{{ admin.name }}{% if admin.is_super_admin %} · Super Admin{% endif %}</span>
                 {% endif %}
@@ -36,6 +55,69 @@
             </div>
         </div>
     </nav>
+
+    {% if admin and admin.is_super_admin %}
+    <script>
+        const NOTIF_CSRF_TOKEN = "{{ request.state.csrf_token }}";
+
+        async function loadNotifications() {
+            try {
+                const res = await fetch('/notifications/recent');
+                if (!res.ok) return;
+                const data = await res.json();
+
+                const badge = document.getElementById('notif-badge');
+                if (data.unread_count > 0) {
+                    badge.textContent = data.unread_count > 9 ? '9+' : data.unread_count;
+                    badge.classList.remove('hidden');
+                } else {
+                    badge.classList.add('hidden');
+                }
+
+                const list = document.getElementById('notif-list');
+                if (data.items.length === 0) {
+                    list.innerHTML = '<div class="px-3 py-4 text-sm text-slate-400 text-center">No notifications yet.</div>';
+                    return;
+                }
+                list.innerHTML = data.items.map(function (n) {
+                    return '<a href="/students/' + n.student_id + '" class="block px-3 py-2 text-sm hover:bg-slate-50">' +
+                        '<div class="text-slate-800">' +
+                        '<span class="font-mono text-xs text-slate-500">' + n.roll_number + '</span> ' +
+                        n.student_name + '\u2019s fee <span class="font-medium">' + n.fee_amount + '</span> is collected by ' + n.collected_by_name +
+                        '</div>' +
+                        '<div class="text-[11px] text-slate-400 mt-0.5">' + new Date(n.created_at + 'Z').toLocaleString() + '</div>' +
+                        '</a>';
+                }).join('');
+            } catch (e) {
+                // Silent -- the bell just keeps showing its last-known state.
+            }
+        }
+
+        function toggleNotifDropdown() {
+            const dropdown = document.getElementById('notif-dropdown');
+            const opening = dropdown.classList.contains('hidden');
+            dropdown.classList.toggle('hidden');
+            if (opening) {
+                fetch('/notifications/mark-read', {
+                    method: 'POST',
+                    body: new URLSearchParams({ csrf_token: NOTIF_CSRF_TOKEN }),
+                }).then(function () {
+                    document.getElementById('notif-badge').classList.add('hidden');
+                });
+            }
+        }
+
+        document.addEventListener('click', function (e) {
+            const dropdown = document.getElementById('notif-dropdown');
+            const btn = document.getElementById('notif-bell-btn');
+            if (!dropdown.contains(e.target) && !btn.contains(e.target)) {
+                dropdown.classList.add('hidden');
+            }
+        });
+
+        loadNotifications();
+    </script>
+    {% endif %}
 
     <main class="max-w-6xl mx-auto px-4 py-8">
         {% block content %}{% endblock %}

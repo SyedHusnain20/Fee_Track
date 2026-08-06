@@ -65,6 +65,7 @@
             <div class="text-center rounded px-1 py-1.5
                 {% if row.status == 'Present' %}bg-green-50 text-green-800
                 {% elif row.status == 'Late' %}bg-amber-50 text-amber-800
+                {% elif row.status == 'Holiday' %}bg-yellow-100 text-yellow-800
                 {% else %}bg-red-50 text-red-800{% endif %}"
                 title="{{ row.day.strftime('%d %b %Y') }} ({{ row.weekday }}) — {{ row.status }}">
                 <div class="text-[10px] leading-tight">{{ row.day.strftime('%d %b') }}</div>
