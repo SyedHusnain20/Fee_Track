@@ -11,7 +11,7 @@
 {% if due_day_error %}
 <div class="text-sm text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-2 mb-3">{{ due_day_error }}</div>
 {% endif %}
-<form method="post" action="/settings/fee-due-day" class="bg-white border border-slate-200 rounded-xl p-4 max-w-2xl mb-8 flex items-end gap-3">
+<form method="post" action="/settings/fee-due-day" class="bg-white border border-slate-200 rounded-xl p-4 max-w-2xl mb-8 flex flex-wrap items-end gap-3">
     <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
     <div>
         <label class="block text-xs text-slate-500 mb-1">Due day</label>
@@ -27,7 +27,7 @@
 <p class="text-sm text-slate-500 mb-3">
     Revenue, collections, and outstanding fees for a given month. Moved here from Fee Cycles since this is sensitive financial information.
 </p>
-<form method="get" action="/settings" class="flex items-end gap-2 mb-3">
+<form method="get" action="/settings" class="flex flex-wrap items-end gap-2 mb-3">
     <div>
         <label class="block text-xs text-slate-500 mb-1">Period</label>
         <input type="month" name="period" value="{{ fin_period }}"
@@ -35,7 +35,7 @@
     </div>
     <button type="submit" class="rounded-md border border-slate-300 text-sm px-3 py-1.5 hover:bg-slate-50">Go</button>
 </form>
-<div class="grid grid-cols-3 gap-4 max-w-2xl mb-8">
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-2xl mb-8">
     <div class="bg-white border border-slate-200 rounded-xl p-4">
         <div class="text-2xl font-semibold text-slate-900">Rs {{ "%.0f"|format(total_revenue) }}</div>
         <div class="text-xs text-slate-500 mt-1">Total revenue ({{ fin_cycle_count }} cycle{{ "s" if fin_cycle_count != 1 else "" }})</div>
@@ -83,8 +83,8 @@
     </form>
 </dialog>
 
-<div class="bg-white border border-slate-200 rounded-xl overflow-hidden max-w-2xl mb-8">
-    <table class="w-full text-sm">
+<div class="bg-white border border-slate-200 rounded-xl overflow-hidden max-w-2xl mb-8 overflow-x-auto">
+    <table class="w-full text-sm min-w-[360px]">
         <thead class="bg-slate-50 border-b border-slate-200 text-left text-slate-500">
             <tr>
                 <th class="px-4 py-3 font-medium">Date</th>
@@ -115,8 +115,8 @@
 <div class="text-sm text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-2 mb-6">{{ error }}</div>
 {% endif %}
 
-<div class="bg-white border border-slate-200 rounded-xl overflow-hidden max-w-2xl mb-8">
-    <table class="w-full text-sm">
+<div class="bg-white border border-slate-200 rounded-xl overflow-hidden max-w-2xl mb-8 overflow-x-auto">
+    <table class="w-full text-sm min-w-[480px]">
         <thead class="bg-slate-50 border-b border-slate-200 text-left text-slate-500">
             <tr>
                 <th class="px-4 py-3 font-medium">Session</th>
@@ -128,7 +128,7 @@
             <tr>
                 <td class="px-4 py-3 text-slate-900 align-top">{{ row.label }}</td>
                 <td class="px-4 py-3">
-                    <form method="post" action="/settings/{{ row.session.value }}" class="flex items-center gap-3">
+                    <form method="post" action="/settings/{{ row.session.value }}" class="flex flex-wrap items-center gap-3">
                         <div>
                             <label class="block text-xs text-slate-500 mb-1">Start time</label>
                             <input type="time" name="start_time"

@@ -12,16 +12,16 @@
         }
     </style>
 </head>
-<body class="min-h-screen bg-slate-100 flex flex-col items-center py-10 gap-6">
+<body class="min-h-screen bg-slate-100 flex flex-col items-center py-10 px-4 gap-6">
 
-    <div class="no-print flex items-center gap-3">
+    <div class="no-print flex flex-wrap items-center justify-center gap-3 text-center">
         <button onclick="window.print()" class="rounded-md bg-slate-800 text-white text-sm font-medium px-4 py-2 hover:bg-slate-700">
             Print this card
         </button>
         <a href="/students/{{ student.id }}" class="text-sm text-slate-600 hover:text-slate-900">Back to student</a>
     </div>
 
-    <div class="bg-white border border-slate-300 rounded-xl shadow-sm w-80 p-6 text-center">
+    <div class="bg-white border border-slate-300 rounded-xl shadow-sm w-full max-w-[320px] p-6 text-center">
         <div class="text-xs font-semibold tracking-wide text-slate-400 uppercase mb-4">Fee Track Student ID</div>
         <img src="/students/{{ student.id }}/qr-code.png" alt="QR code" class="mx-auto w-40 h-40 mb-4">
         <div class="text-lg font-semibold text-slate-900">{{ student.name }}</div>

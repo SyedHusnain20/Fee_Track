@@ -12,7 +12,7 @@
         }   
     </style>
 </head>
-<body class="bg-white text-slate-900 p-10 max-w-2xl mx-auto">
+<body class="bg-white text-slate-900 p-4 sm:p-10 max-w-2xl mx-auto">
 
     <div class="no-print mb-6 flex justify-end">
         <button onclick="window.print()" class="rounded-md bg-slate-800 text-white text-sm font-medium px-4 py-2 hover:bg-slate-700">
@@ -20,19 +20,19 @@
         </button>
     </div>
 
-    <div class="border border-slate-300 rounded-xl p-8">
-        <div class="flex items-center justify-between mb-8 pb-6 border-b border-slate-200">
+    <div class="border border-slate-300 rounded-xl p-4 sm:p-8">
+        <div class="flex flex-wrap items-start justify-between gap-4 mb-8 pb-6 border-b border-slate-200">
             <div>
-                <h1 class="text-2xl font-bold text-slate-900">APEX SCHOOL & ACADEMY</h1>
+                <h1 class="text-xl sm:text-2xl font-bold text-slate-900">APEX SCHOOL & ACADEMY</h1>
                 <p class="text-sm text-slate-500 mt-1">Fee Payment Invoice</p>
             </div>
-            <div class="text-right text-sm text-slate-500">
+            <div class="text-sm text-slate-500 sm:text-right">
                 <div>Invoice #: <span class="font-mono text-slate-900">{{ invoice_number }}</span></div>
                 <div>Paid on: <span class="text-slate-900">{{ cycle.paid_date.strftime('%d %B %Y') if cycle.paid_date else '—' }}</span></div>
             </div>
         </div>
 
-        <div class="grid grid-cols-2 gap-6 mb-8">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-8">
             <div>
                 <p class="text-xs text-slate-400 uppercase tracking-wide mb-1">Student</p>
                 <p class="text-slate-900 font-medium">{{ student.name }}</p>

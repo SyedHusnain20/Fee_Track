@@ -19,8 +19,8 @@
     {% if total == 0 %}
     <p class="text-sm text-slate-400 mb-6">No attendance records currently in the table — nothing to archive.</p>
     {% else %}
-    <div class="bg-white border border-slate-200 rounded-xl overflow-hidden max-w-2xl mb-6">
-        <table class="w-full text-sm">
+    <div class="bg-white border border-slate-200 rounded-xl overflow-hidden max-w-2xl mb-6 overflow-x-auto">
+        <table class="w-full text-sm min-w-[320px]">
             <thead class="bg-slate-50 border-b border-slate-200 text-left text-slate-500">
                 <tr>
                     <th class="px-4 py-3 font-medium">Class</th>

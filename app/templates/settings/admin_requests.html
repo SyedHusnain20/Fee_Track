@@ -2,7 +2,7 @@
 {% block title %}Admin Requests — Fee Track Admin{% endblock %}
 {% block content %}
 
-<div class="flex items-center gap-3 mb-2">
+<div class="flex flex-wrap items-center gap-3 mb-2">
     <h1 class="text-xl font-semibold text-slate-900">Admin Requests</h1>
     <a href="/settings" class="text-xs text-slate-500 hover:text-slate-800 underline">Back to Settings</a>
 </div>
@@ -11,8 +11,8 @@
 </p>
 
 {% if pending %}
-<div class="bg-white border border-slate-200 rounded-xl overflow-hidden max-w-3xl">
-    <table class="w-full text-sm">
+<div class="bg-white border border-slate-200 rounded-xl overflow-hidden max-w-3xl overflow-x-auto">
+    <table class="w-full text-sm min-w-[600px]">
         <thead class="bg-slate-50 border-b border-slate-200 text-left text-slate-500">
             <tr>
                 <th class="px-4 py-3 font-medium">Name</th>
