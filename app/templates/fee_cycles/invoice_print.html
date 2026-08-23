@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Print {{ invoice_number }}</title>
+</head>
+<body>
+
+    {% include "fee_cycles/_invoice_thermal.html" %}
+
+    <script>
+        // This page is only ever opened via window.open() from the main
+        // invoice view's Print button (never a plain link), specifically
+        // so window.close() below is allowed to run — browsers block
+        // script-closing a tab/window they didn't script-open themselves.
+        window.onload = () => window.print();
+        window.onafterprint = () => window.close();
+    </script>
+
+</body>
+</html>

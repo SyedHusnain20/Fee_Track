@@ -16,9 +16,10 @@ from typing import Optional
 from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, status
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, or_, select
+from weasyprint import HTML
 
 from app.api.deps import get_current_admin
 from app.api.students import CATEGORY_LABELS, DISCOUNT_TYPE_LABELS
@@ -121,13 +122,10 @@ async def list_fee_cycles(
     )
 
 
-@router.get("/{cycle_id}/invoice", response_class=HTMLResponse)
-async def view_invoice(
-    cycle_id: int,
-    request: Request,
-    session: Session = Depends(get_session),
-    admin: AdminUser = Depends(get_current_admin),
-):
+def _invoice_context(session: Session, cycle_id: int) -> dict:
+    """Shared lookups + template context for both the on-screen preview
+    and the PDF export, so the two can never drift apart into showing
+    different numbers for the same cycle."""
     cycle = session.get(FeeCycle, cycle_id)
     if not cycle:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Fee cycle not found.")
@@ -145,27 +143,86 @@ async def view_invoice(
     # looked up manually here, the one place that actually needs the name.
     collected_by = session.get(AdminUser, cycle.collected_by_id) if cycle.collected_by_id else None
 
+    return {
+        "cycle": cycle,
+        "student": student,
+        "collected_by": collected_by,
+        # category_breakdown's keys are plain strings (FeeCategory.value,
+        # from the JSON snapshot) — string-keyed here too so the
+        # template can look labels up directly without an enum
+        # round-trip. category_order fixes iteration to School,
+        # Coaching, English, Computer regardless of dict insertion
+        # order, so the breakdown reads the same way every time.
+        "category_labels": {c.value: label for c, label in CATEGORY_LABELS.items()},
+        "category_order": [c.value for c in CATEGORY_LABELS],
+        "discount_type_labels": {dt.value: label for dt, label in DISCOUNT_TYPE_LABELS.items()},
+        # Derived from the cycle's own id -- unique for free, no new
+        # counter/table needed, matches this table's existing
+        # snapshot-not-recompute philosophy (Section 5).
+        "invoice_number": f"INV-{cycle.id:06d}",
+    }
+
+
+@router.get("/{cycle_id}/invoice", response_class=HTMLResponse)
+async def view_invoice(
+    cycle_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+    admin: AdminUser = Depends(get_current_admin),
+):
+    context = _invoice_context(session, cycle_id)
     return templates.TemplateResponse(
         "fee_cycles/invoice.html",
-        {
-            "request": request,
-            "cycle": cycle,
-            "student": student,
-            "collected_by": collected_by,
-            # category_breakdown's keys are plain strings (FeeCategory.value,
-            # from the JSON snapshot) — string-keyed here too so the
-            # template can look labels up directly without an enum
-            # round-trip. category_order fixes iteration to School,
-            # Coaching, English, Computer regardless of dict insertion
-            # order, so the breakdown reads the same way every time.
-            "category_labels": {c.value: label for c, label in CATEGORY_LABELS.items()},
-            "category_order": [c.value for c in CATEGORY_LABELS],
-            "discount_type_labels": {dt.value: label for dt, label in DISCOUNT_TYPE_LABELS.items()},
-            # Derived from the cycle's own id -- unique for free, no new
-            # counter/table needed, matches this table's existing
-            # snapshot-not-recompute philosophy (Section 5).
-            "invoice_number": f"INV-{cycle.id:06d}",
-        },
+        {"request": request, **context},
+    )
+
+
+@router.get("/{cycle_id}/invoice/print", response_class=HTMLResponse)
+async def print_invoice_thermal(
+    cycle_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+    admin: AdminUser = Depends(get_current_admin),
+):
+    """80mm thermal-receipt layout for the bill printer — a separate
+    document from the A4 PDF invoice, not the same content resized. The
+    main invoice preview opens this in a popup (window.open, not a plain
+    link) so it's allowed to auto-trigger the OS print dialog on load
+    and close itself once printing is done. Whichever printer the admin
+    has selected/set as default in that dialog is what actually prints —
+    this page has no direct USB/serial access to the bill printer, it
+    just renders at the bill printer's own paper width so a normal
+    browser print goes to it looking right.
+    """
+    context = _invoice_context(session, cycle_id)
+    return templates.TemplateResponse(
+        "fee_cycles/invoice_print.html",
+        {"request": request, **context},
+    )
+
+
+@router.get("/{cycle_id}/invoice.pdf")
+async def download_invoice_pdf(
+    cycle_id: int,
+    session: Session = Depends(get_session),
+    admin: AdminUser = Depends(get_current_admin),
+):
+    """Real, server-rendered PDF — not the browser's own Ctrl+P / "Print
+    to PDF", which bakes in the browser's own date/URL header-footer and
+    depends on whatever print settings the admin's browser happens to
+    have. WeasyPrint renders the same markup the on-screen preview uses
+    (see _invoice_document.html) straight to PDF bytes, so the output is
+    identical regardless of who opens it or what browser they're on.
+    """
+    context = _invoice_context(session, cycle_id)
+    fragment = templates.env.get_template("fee_cycles/_invoice_document.html").render(context)
+    document_html = f"<!DOCTYPE html><html><head><meta charset='utf-8'></head><body>{fragment}</body></html>"
+    pdf_bytes = HTML(string=document_html).write_pdf()
+
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="{context["invoice_number"]}.pdf"'},
     )
 
 

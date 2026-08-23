@@ -4,105 +4,56 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Invoice {{ invoice_number }} — Fee Track</title>
-    <script src="https://cdn.tailwindcss.com"></script>
     <style>
+        @media screen {
+            .toolbar {
+                max-width: 760px;
+                margin: 20px auto 0;
+                padding: 0 4px;
+                display: flex;
+                justify-content: flex-end;
+                gap: 10px;
+                font-family: Helvetica, Arial, sans-serif;
+            }
+            .toolbar a, .toolbar button {
+                font: inherit;
+                font-size: 9.5pt;
+                font-weight: 600;
+                border-radius: 6px;
+                padding: 8px 16px;
+                cursor: pointer;
+                text-decoration: none;
+            }
+            .toolbar a {
+                background: #0f172a;
+                color: #ffffff;
+                border: 1px solid #0f172a;
+            }
+            .toolbar a:hover { background: #1e293b; }
+            .toolbar button {
+                background: #ffffff;
+                color: #334155;
+                border: 1px solid #cbd5e1;
+            }
+            .toolbar button:hover { background: #f8fafc; }
+        }
+        /* The Print button opens a separate thermal-formatted popup (see
+           below) rather than printing this page — but if an admin hits
+           Ctrl+P on this preview directly, still hide the toolbar so it
+           doesn't end up in that printout. */
         @media print {
-            .no-print { display: none; }
-            body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-        }   
+            .toolbar { display: none; }
+        }
     </style>
 </head>
-<body class="bg-white text-slate-900 p-4 sm:p-10 max-w-2xl mx-auto">
+<body>
 
-    <div class="no-print mb-6 flex justify-end">
-        <button onclick="window.print()" class="rounded-md bg-slate-800 text-white text-sm font-medium px-4 py-2 hover:bg-slate-700">
-            Print
-        </button>
+    <div class="toolbar">
+        <button type="button" onclick="window.open('/fee-cycles/{{ cycle.id }}/invoice/print', 'thermal-print-{{ cycle.id }}', 'width=420,height=640')">Print</button>
+        <a href="/fee-cycles/{{ cycle.id }}/invoice.pdf">Download PDF</a>
     </div>
 
-    <div class="border border-slate-300 rounded-xl p-4 sm:p-8">
-        <div class="flex flex-wrap items-start justify-between gap-4 mb-8 pb-6 border-b border-slate-200">
-            <div>
-                <h1 class="text-xl sm:text-2xl font-bold text-slate-900">APEX SCHOOL & ACADEMY</h1>
-                <p class="text-sm text-slate-500 mt-1">Fee Payment Invoice</p>
-            </div>
-            <div class="text-sm text-slate-500 sm:text-right">
-                <div>Invoice #: <span class="font-mono text-slate-900">{{ invoice_number }}</span></div>
-                <div>Paid on: <span class="text-slate-900">{{ cycle.paid_date.strftime('%d %B %Y') if cycle.paid_date else '—' }}</span></div>
-            </div>
-        </div>
-
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-8">
-            <div>
-                <p class="text-xs text-slate-400 uppercase tracking-wide mb-1">Student</p>
-                <p class="text-slate-900 font-medium">{{ student.name }}</p>
-                <p class="text-sm text-slate-500">Roll # {{ student.roll_number }}</p>
-                <p class="text-sm text-slate-500">{{ student.class_level.name }}</p>
-            </div>
-            <div>
-                <p class="text-xs text-slate-400 uppercase tracking-wide mb-1">Billing period</p>
-                <p class="text-slate-900 font-medium">{{ cycle.period }}</p>
-                <p class="text-xs text-slate-400 uppercase tracking-wide mt-4 mb-1">Collected by</p>
-                <p class="text-sm text-slate-700">{{ collected_by.name if collected_by else "—" }}</p>
-            </div>
-        </div>
-
-        <table class="w-full text-sm mb-8">
-            <thead class="border-b border-slate-300 text-left text-slate-500">
-                <tr>
-                    <th class="py-2 font-medium">Description</th>
-                    <th class="py-2 font-medium text-right">Amount</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% if cycle.category_breakdown %}
-                {% for category_value in category_order %}
-                {% if category_value in cycle.category_breakdown %}
-                <tr class="border-b border-slate-100">
-                    <td class="py-3 text-slate-700">{{ category_labels[category_value] }} ({{ cycle.period }})</td>
-                    <td class="py-3 text-right text-slate-900">Rs {{ "%.2f"|format(cycle.category_breakdown[category_value]|float) }}</td>
-                </tr>
-                {% endif %}
-                {% endfor %}
-                {% else %}
-                <tr class="border-b border-slate-100">
-                    <td class="py-3 text-slate-700">Fee for {{ cycle.period }}</td>
-                    <td class="py-3 text-right text-slate-900">Rs {{ "%.2f"|format(cycle.subtotal) }}</td>
-                </tr>
-                <tr>
-                    <td class="pb-3 text-xs text-slate-400 italic" colspan="2">
-                        Itemized breakdown not available for this invoice (generated before per-category itemization was added).
-                    </td>
-                </tr>
-                {% endif %}
-            </tbody>
-            <tfoot>
-                <tr class="border-t border-slate-200">
-                    <td class="py-2 text-slate-500">Subtotal</td>
-                    <td class="py-2 text-right text-slate-700">Rs {{ "%.2f"|format(cycle.subtotal) }}</td>
-                </tr>
-                {% if cycle.discount_type.value != "none" %}
-                <tr>
-                    <td class="py-2 text-slate-500">
-                        Discount ({{ discount_type_labels[cycle.discount_type.value] }}{% if cycle.discount_type.value == "percentage" %}, {{ cycle.discount_value }}%{% elif cycle.discount_value is not none %}, Rs {{ cycle.discount_value }}{% endif %})
-                    </td>
-                    <td class="py-2 text-right text-slate-700">&minus; Rs {{ "%.2f"|format(cycle.discount_amount) }}</td>
-                </tr>
-                {% endif %}
-                <tr class="border-t border-slate-300">
-                    <td class="py-3 font-semibold text-slate-900">Total paid</td>
-                    <td class="py-3 text-right font-semibold text-slate-900">Rs {{ "%.2f"|format(cycle.total_due) }}</td>
-                </tr>
-            </tfoot>
-        </table>
-
-        <p class="text-xs text-slate-400 text-center pt-6 border-t border-slate-200">
-            This is a computer-generated invoice and does not require a signature.
-        </p>
-        <p class="text-xs text-slate-400 text-center mt-2">
-            Powered by R&amp;R Digital Solutions &middot; Contact: 03126641281
-        </p>
-    </div>
+    {% include "fee_cycles/_invoice_document.html" %}
 
 </body>
 </html>

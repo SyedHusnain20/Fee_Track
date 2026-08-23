@@ -11,5 +11,6 @@ jinja2==3.1.5
 itsdangerous==2.2.0
 qrcode[pil]==8.2
 openpyxl==3.1.5
+weasyprint==69.0
 b2sdk==2.7.0
 tzdata

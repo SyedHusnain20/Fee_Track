@@ -1,0 +1,142 @@
+<style>
+    /* 80mm roll, ~42 chars/line. margin:0 on @page — thermal printer
+       drivers apply their own hardware margin, and an extra CSS page
+       margin on top of that tends to push content off a continuous
+       roll or get silently ignored/doubled depending on the driver.
+       Breathing room instead comes from padding on .receipt below. */
+    @page {
+        size: 80mm auto;
+        margin: 0;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+        margin: 0;
+        font-family: "Courier New", Courier, monospace;
+        font-size: 9.5pt;
+        line-height: 1.45;
+        color: #000000;
+    }
+
+    .receipt {
+        width: 80mm;
+        padding: 3mm 4mm;
+    }
+
+    .receipt__center { text-align: center; }
+    .receipt__brand {
+        font-size: 12.5pt;
+        font-weight: 700;
+        letter-spacing: 0.03em;
+    }
+    .receipt__tag { font-size: 8.5pt; margin-top: 1mm; }
+    .receipt__paid {
+        margin-top: 2mm;
+        font-weight: 700;
+        letter-spacing: 0.15em;
+    }
+
+    .receipt__rule {
+        border-top: 1px dashed #000000;
+        margin: 2.5mm 0;
+    }
+
+    .receipt__row {
+        display: flex;
+        justify-content: space-between;
+        gap: 6px;
+    }
+    .receipt__row + .receipt__row { margin-top: 0.8mm; }
+    .receipt__row-label { color: #000000; }
+    .receipt__row-value { text-align: right; font-weight: 700; }
+
+    .receipt__item {
+        display: flex;
+        justify-content: space-between;
+        gap: 6px;
+        margin-top: 1.2mm;
+    }
+    .receipt__item-desc { flex: 1; padding-right: 6px; }
+    .receipt__item-amt { white-space: nowrap; }
+    .receipt__item-note {
+        font-size: 8pt;
+        font-style: italic;
+        margin-top: 1mm;
+    }
+
+    .receipt__total {
+        display: flex;
+        justify-content: space-between;
+        font-size: 11.5pt;
+        font-weight: 700;
+        margin-top: 1mm;
+    }
+
+    .receipt__footer {
+        margin-top: 3mm;
+        text-align: center;
+        font-size: 8pt;
+    }
+    .receipt__footer p { margin: 1mm 0; }
+</style>
+
+<div class="receipt">
+    <div class="receipt__center">
+        <div class="receipt__brand">APEX SCHOOL &amp; ACADEMY</div>
+        <div class="receipt__tag">Fee Payment Invoice</div>
+        <div class="receipt__paid">*** PAID ***</div>
+    </div>
+
+    <div class="receipt__rule"></div>
+
+    <div class="receipt__row"><span class="receipt__row-label">Invoice #</span><span class="receipt__row-value">{{ invoice_number }}</span></div>
+    <div class="receipt__row"><span class="receipt__row-label">Student</span><span class="receipt__row-value">{{ student.name }}</span></div>
+    <div class="receipt__row"><span class="receipt__row-label">Roll #</span><span class="receipt__row-value">{{ student.roll_number }}</span></div>
+    <div class="receipt__row"><span class="receipt__row-label">Class</span><span class="receipt__row-value">{{ student.class_level.name }}</span></div>
+    <div class="receipt__row"><span class="receipt__row-label">Period</span><span class="receipt__row-value">{{ cycle.period }}</span></div>
+    <div class="receipt__row"><span class="receipt__row-label">Paid on</span><span class="receipt__row-value">{{ cycle.paid_date.strftime('%d %b %Y') if cycle.paid_date else '-' }}</span></div>
+    <div class="receipt__row"><span class="receipt__row-label">Collected by</span><span class="receipt__row-value">{{ collected_by.name if collected_by else "-" }}</span></div>
+
+    <div class="receipt__rule"></div>
+
+    {% if cycle.category_breakdown %}
+    {% for category_value in category_order %}
+    {% if category_value in cycle.category_breakdown %}
+    <div class="receipt__item">
+        <span class="receipt__item-desc">{{ category_labels[category_value] }} ({{ cycle.period }})</span>
+        <span class="receipt__item-amt">Rs {{ "%.2f"|format(cycle.category_breakdown[category_value]|float) }}</span>
+    </div>
+    {% endif %}
+    {% endfor %}
+    {% else %}
+    <div class="receipt__item">
+        <span class="receipt__item-desc">Fee for {{ cycle.period }}</span>
+        <span class="receipt__item-amt">Rs {{ "%.2f"|format(cycle.subtotal) }}</span>
+    </div>
+    <div class="receipt__item-note">Itemized breakdown not available for this invoice.</div>
+    {% endif %}
+
+    <div class="receipt__rule"></div>
+
+    <div class="receipt__row"><span class="receipt__row-label">Subtotal</span><span class="receipt__row-value">Rs {{ "%.2f"|format(cycle.subtotal) }}</span></div>
+    {% if cycle.discount_type.value != "none" %}
+    <div class="receipt__row">
+        <span class="receipt__row-label">Discount{% if cycle.discount_type.value == "percentage" %} ({{ cycle.discount_value }}%){% endif %}</span>
+        <span class="receipt__row-value">-Rs {{ "%.2f"|format(cycle.discount_amount) }}</span>
+    </div>
+    {% endif %}
+
+    <div class="receipt__rule"></div>
+
+    <div class="receipt__total"><span>TOTAL PAID</span><span>Rs {{ "%.2f"|format(cycle.total_due) }}</span></div>
+
+    <div class="receipt__rule"></div>
+
+    <div class="receipt__footer">
+        <p>Computer-generated &middot; no signature required</p>
+        <p><strong>Powered by: R&amp;R Digital Solutions</strong></p>
+        <p>03126641281</p>
+        <p>www.rrdigitalsolutions.org</p>
+    </div>
+</div>
