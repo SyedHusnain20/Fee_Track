@@ -20,6 +20,7 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import func
+from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
 from app.api.deps import get_current_admin
@@ -111,8 +112,19 @@ async def dashboard(
     ).one()
 
     # --- Last 10 kiosk scans, most recent first --------------------------
+    # selectinload both relationships: without this, record.student.name /
+    # record.teacher.name below lazy-loads one row at a time — same
+    # pattern (and same fix) as students.py's list route already applies
+    # to Student.class_level. Bounded to at most 10 records here rather
+    # than scaling with total attendance history, but this is the page
+    # every admin lands on after login and likely reloads constantly
+    # through the day, so it's worth the same fix on that basis alone.
     recent_records = session.exec(
         select(AttendanceRecord)
+        .options(
+            selectinload(AttendanceRecord.student),
+            selectinload(AttendanceRecord.teacher),
+        )
         .order_by(
             AttendanceRecord.scan_date.desc(),
             AttendanceRecord.arrival_time.desc(),

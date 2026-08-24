@@ -22,13 +22,14 @@ audit-log hook.
 import re
 from decimal import Decimal
 
+from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
 from app.models.enums import AuditAction, FeeCycleStatus
 from app.models.fee_cycle import FeeCycle
 from app.models.student import Student
 from app.services.audit import write_audit_log
-from app.services.fees import compute_student_fee_breakdown
+from app.services.fees import compute_fee_breakdowns_bulk
 
 PERIOD_PATTERN = re.compile(r"^\d{4}-(0[1-9]|1[0-2])$")
 
@@ -41,11 +42,27 @@ def generate_fee_cycles(session: Session, period: str, admin_id: int) -> dict:
     if not PERIOD_PATTERN.match(period):
         raise ValueError('Period must be in "YYYY-MM" format, e.g. "2026-07".')
 
-    students = session.exec(select(Student).where(Student.is_active.is_(True))).all()
+    # selectinload(Student.class_level): same reason as students.py's list
+    # route — without it, compute_fee_breakdowns_bulk's
+    # student.class_level.class_offset lazy-loads one row at a time.
+    students = session.exec(
+        select(Student)
+        .where(Student.is_active.is_(True))
+        .options(selectinload(Student.class_level))
+    ).all()
 
     already_generated = set(
         session.exec(select(FeeCycle.student_id).where(FeeCycle.period == period)).all()
     )
+
+    # Was: compute_student_fee_breakdown(session, student) called once per
+    # student in the loop below — each call re-querying every
+    # CategoryFeeDefault band plus that student's own enrollments, on top
+    # of the class_level lazy-load above. For a real school that's
+    # roughly (1 + up to 4) x active-student-count queries on every
+    # monthly run. Computed in bulk up front instead — same breakdowns,
+    # a small fixed number of queries total regardless of student count.
+    breakdowns = compute_fee_breakdowns_bulk(session, students)
 
     created = 0
     skipped_existing = 0
@@ -56,7 +73,7 @@ def generate_fee_cycles(session: Session, period: str, admin_id: int) -> dict:
             skipped_existing += 1
             continue
 
-        breakdown = compute_student_fee_breakdown(session, student)
+        breakdown = breakdowns[student.id]
         if breakdown["final_total"] <= Decimal("0.00"):
             skipped_zero_due += 1
             continue

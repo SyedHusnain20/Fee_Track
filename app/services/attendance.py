@@ -45,6 +45,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 from typing import Optional, Union
 
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from app.core.timezone import SCHOOL_TIMEZONE
@@ -178,6 +179,29 @@ def _finalize_attendance(
         marked_by_id=marked_by_id,
     )
     session.add(record)
+    try:
+        # Flush now (not just commit) so the partial unique index — one
+        # scan per (student-or-teacher, session, day) — surfaces here as
+        # a catchable IntegrityError. The already_scanned check above
+        # closes the common case, but two near-simultaneous scans for the
+        # same person (a double-tap, a kiosk retrying a flaky request)
+        # can both pass that check before either commits; without this,
+        # the loser's commit raises straight through process_scan/
+        # process_manual_entry as an unhandled 500 at the kiosk instead
+        # of the same friendly duplicate message the normal case gets.
+        # Same race, same fix as app/api/enrollments.py's create_enrollment.
+        session.flush()
+    except IntegrityError:
+        session.rollback()
+        winner = session.exec(existing_query).first()
+        arrival = winner.arrival_time.strftime("%H:%M") if winner else arrival_time.strftime("%H:%M")
+        return ScanResult(
+            ok=False,
+            kind="duplicate",
+            message=f"{person.name} already scanned for {attendance_session.value} today at {arrival}.",
+            person_type=person_type,
+        )
+
     session.commit()
 
     return ScanResult(

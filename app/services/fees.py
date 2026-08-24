@@ -173,8 +173,89 @@ def compute_student_fee_breakdown(session: Session, student: Student) -> dict:
 def compute_student_total_fee(session: Session, student_id: int) -> Decimal:
     """Thin wrapper over compute_student_fee_breakdown() for callers that
     only have a student_id and only need the bottom-line number — FeeCycle
-    generation."""
+    generation.
+    """
     student = session.get(Student, student_id)
     if student is None:
         return ZERO
     return compute_student_fee_breakdown(session, student)["final_total"]
+
+
+def compute_fee_breakdowns_bulk(session: Session, students: list) -> dict:
+    """Same breakdown compute_student_fee_breakdown() computes, for many
+    students at once in a small, fixed number of queries instead of one
+    (or up to five, per enrollment) per student.
+
+    compute_student_fee_breakdown() is fine for single-student call sites
+    (student detail page, one enrollment change), where the per-student
+    query cost is a one-off. But app/services/fee_cycle_generation.py
+    calls it once per active student in a single bulk run — every
+    school-wide monthly generation was turning into roughly
+    (1 + up to 4) x student_count queries, purely from re-fetching the
+    same handful of CategoryFeeDefault bands and re-querying enrollments
+    student-by-student. Mirrors the exact bulk-loading technique
+    app/api/students.py's list_students() already uses for the same
+    reason (see its own bands_by_category / enrollments_by_student
+    comments) — band rows and active enrollments are fetched once up
+    front, in memory from there.
+
+    Callers must eager-load Student.class_level themselves (e.g. via
+    selectinload in the initial query) — accessing student.class_level
+    here without that reintroduces exactly the N+1 this function exists
+    to avoid.
+
+    Returns {student_id: breakdown_dict}, each breakdown dict shaped
+    exactly like compute_student_fee_breakdown()'s return value.
+    """
+    all_bands = session.exec(select(CategoryFeeDefault)).all()
+    bands_by_category: dict = {}
+    for band in all_bands:
+        bands_by_category.setdefault(band.category, []).append(band)
+
+    def _band_fee(category: FeeCategory, class_offset: int) -> Optional[Decimal]:
+        for band in bands_by_category.get(category, []):
+            if band.min_class_offset <= class_offset <= band.max_class_offset:
+                return band.default_amount
+        return None
+
+    student_ids = [s.id for s in students]
+    enrollments_by_student: dict = {}
+    if student_ids:
+        all_enrollments = session.exec(
+            select(Enrollment).where(
+                Enrollment.student_id.in_(student_ids),
+                Enrollment.status == EnrollmentStatus.ACTIVE,
+            )
+        ).all()
+        for enrollment in all_enrollments:
+            enrollments_by_student.setdefault(enrollment.student_id, []).append(enrollment)
+
+    breakdowns: dict = {}
+    for student in students:
+        class_offset = student.class_level.class_offset
+        category_amounts: dict = {}
+        subtotal = ZERO
+        for enrollment in enrollments_by_student.get(student.id, []):
+            amount = (
+                enrollment.custom_fee
+                if enrollment.custom_fee is not None
+                else _band_fee(enrollment.category, class_offset)
+            )
+            if amount is None:
+                continue
+            category_amounts[enrollment.category] = amount
+            subtotal += amount
+
+        final_total = apply_discount(subtotal, student.discount_type, student.discount_value)
+        discount_amount = subtotal - final_total
+
+        breakdowns[student.id] = {
+            "category_amounts": category_amounts,
+            "subtotal": subtotal,
+            "discount_type": student.discount_type,
+            "discount_value": student.discount_value,
+            "discount_amount": discount_amount,
+            "final_total": final_total,
+        }
+
+    return breakdowns

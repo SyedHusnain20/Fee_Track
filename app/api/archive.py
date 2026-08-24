@@ -16,7 +16,7 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
-from sqlmodel import Session, select
+from sqlmodel import Session, delete
 
 from app.api.deps import get_current_admin
 from app.core.database import get_session
@@ -103,9 +103,18 @@ async def archive_execute(
         after_value={"total_records": 0},
     )
 
-    records = session.exec(select(AttendanceRecord)).all()
-    for record in records:
-        session.delete(record)
+    # Bulk DELETE, not the ORM-level fetch-all-then-delete-one-by-one this
+    # used to do: session.exec(select(AttendanceRecord)).all() then
+    # session.delete(record) per row loaded every row from
+    # AttendanceRecord into Python first, then issued one DELETE per row.
+    # This is the single highest-volume delete in the app — the whole
+    # reason the archive feature exists is that this table gets large —
+    # so it's the one place that fetch-then-delete pattern actually hurts,
+    # unlike the small, bounded per-row deletes elsewhere in the app
+    # (AdminSession/Notification cleanup) where the row counts involved
+    # are naturally small. One statement, handled entirely by Postgres,
+    # regardless of how many rows it's clearing.
+    session.exec(delete(AttendanceRecord))
     session.commit()
 
     return templates.TemplateResponse(

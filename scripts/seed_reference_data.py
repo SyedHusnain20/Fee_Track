@@ -1,7 +1,8 @@
-"""One-off seed script for fixed reference data: the 15 ClassLevel rows, 4
-CategoryFeeDefault rows, and attendance timing settings — updated for the
-School/Academy kiosk redesign. Billing (FeeCategory, 4 values) is untouched
-by this redesign; only the kiosk-side AttendanceSession timing keys changed.
+"""One-off seed script for fixed reference data: the 15 ClassLevel rows, 11
+CategoryFeeDefault band rows, and attendance timing settings — updated for
+the School/Academy kiosk redesign. Billing (FeeCategory, 4 values) is
+untouched by this redesign; only the kiosk-side AttendanceSession timing
+keys changed.
 
 Neither Step 5 nor Step 6 populated ClassLevel/CategoryFeeDefault — Student
 creation (Step 7) hard-depends on ClassLevel existing via a foreign key, and
@@ -42,6 +43,28 @@ CLASS_LEVELS = [
 
 DEFAULT_FEE = Decimal("1000.00")  # Section 5: "starts at Rs 1,000, admin-editable"
 
+# category_fee_default has held multiple banded rows per category (not one
+# flat row per category) since alembic/versions/f19c2a7d4b83 restructured
+# it. That migration is the single source of truth for band boundaries;
+# this list mirrors its own _BANDS verbatim, duplicated only because this
+# script runs standalone and doesn't import migration modules. If band
+# boundaries ever change, update both.
+#
+# (category, band_name, min_class_offset, max_class_offset)
+CATEGORY_FEE_BANDS = [
+    (FeeCategory.SCHOOL, "Foundation 1-3", 0, 2),
+    (FeeCategory.SCHOOL, "Class 1-5", 3, 7),
+    (FeeCategory.SCHOOL, "Class 6-8", 8, 10),
+    (FeeCategory.SCHOOL, "Class 9-10", 11, 12),
+    (FeeCategory.COACHING, "Foundation 1-3", 0, 2),
+    (FeeCategory.COACHING, "Class 1-5", 3, 7),
+    (FeeCategory.COACHING, "Class 6-8", 8, 10),
+    (FeeCategory.COACHING, "Class 9-10", 11, 12),
+    (FeeCategory.COACHING, "Class 11-12", 13, 14),
+    (FeeCategory.ENGLISH, "All classes", 0, 14),
+    (FeeCategory.COMPUTER, "All classes", 0, 14),
+]
+
 # PLACEHOLDER schedule — staggered guesses so the kiosk is functional out of
 # the box, not a real school timetable. Review on /settings before go-live.
 # Academy has no grace_minutes key: there's no late calculation for it, so
@@ -66,16 +89,34 @@ def seed_class_levels(session: Session) -> None:
 
 
 def seed_category_fee_defaults(session: Session) -> None:
-    existing = {c.category for c in session.exec(select(CategoryFeeDefault)).all()}
+    # Uniqueness here is (category, min_class_offset) -- matching the DB's
+    # own ix_category_fee_default_category_band unique index -- NOT bare
+    # category. This table has held multiple banded rows per category
+    # since f19c2a7d4b83; checking existence by category alone (its shape
+    # before that migration) would treat every band for a category as
+    # already present the moment any one band for it exists, and silently
+    # seed nothing -- which is exactly what this function used to do.
+    existing = {
+        (row.category, row.min_class_offset)
+        for row in session.exec(select(CategoryFeeDefault)).all()
+    }
     added = 0
-    for category in FeeCategory:
-        if category in existing:
+    for category, band_name, min_offset, max_offset in CATEGORY_FEE_BANDS:
+        if (category, min_offset) in existing:
             continue
-        session.add(CategoryFeeDefault(category=category, default_amount=DEFAULT_FEE))
+        session.add(
+            CategoryFeeDefault(
+                category=category,
+                band_name=band_name,
+                min_class_offset=min_offset,
+                max_class_offset=max_offset,
+                default_amount=DEFAULT_FEE,
+            )
+        )
         added += 1
     print(
-        f"CategoryFeeDefault: added {added}, "
-        f"skipped {len(list(FeeCategory)) - added} already present"
+        f"CategoryFeeDefault: added {added} band(s), "
+        f"skipped {len(CATEGORY_FEE_BANDS) - added} already present"
     )
 
 

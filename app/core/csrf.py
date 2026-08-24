@@ -18,13 +18,15 @@ Verified empirically against this project's exact pinned versions
 does NOT break the route handler's own Form(...) parameter parsing —
 dependencies and the route handler share the same Request instance, and
 Starlette caches the parsed form on it.
+
+Token generation/verification itself lives in app.core.security (single
+source of truth for both password hashing and CSRF signing) — this module
+is just the FastAPI-level enforcement wrapper around it.
 """
 
 from fastapi import HTTPException, Request, status
-from itsdangerous import BadSignature, URLSafeSerializer
 
-from app.core.config import settings
-from app.core.security import SESSION_COOKIE_NAME
+from app.core.security import SESSION_COOKIE_NAME, generate_csrf_token, verify_csrf_token
 
 _UNSAFE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 
@@ -50,22 +52,3 @@ async def csrf_protect(request: Request) -> None:
                 "Please refresh the page and try again."
     ),
 )
-
-
-_csrf_serializer = URLSafeSerializer(settings.SECRET_KEY, salt="csrf-token")
-
-
-def generate_csrf_token(session_token: str) -> str:
-    """Deterministic per-session token: the same session_token always
-    produces the same csrf_token, so nothing needs to be stored server-side
-    — verification just re-derives and compares against the live session
-    cookie."""
-    return _csrf_serializer.dumps(session_token)
-
-
-def verify_csrf_token(submitted_token: str, session_token: str) -> bool:
-    try:
-        decoded = _csrf_serializer.loads(submitted_token)
-    except BadSignature:
-        return False
-    return decoded == session_token
