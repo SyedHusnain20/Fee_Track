@@ -13,6 +13,20 @@ if TYPE_CHECKING:
 
 
 class FeeCycle(SQLModel, table=True):
+    """Due-carry-forward payment model (added alongside exam_fee/
+    amount_paid below): a student's unpaid balance is never rewritten
+    onto a NEW cycle row -- each month still gets exactly one FeeCycle,
+    snapshotted once at generation and never regenerated. Instead,
+    "previous due" is derived at payment/display time by summing
+    (total_due - amount_paid) across a student's own past UNPAID/PARTIAL
+    cycles (see app.services.fee_payments and app/api/fee_cycles.py's
+    list view). Recording a payment allocates the amount FIFO -- oldest
+    outstanding cycle first -- across exactly those rows, so a partial
+    payment can fully clear old months and leave the newest one PARTIAL,
+    or vice versa, without ever needing a separate "running balance"
+    column on Student.
+    """
+
     __tablename__ = "fee_cycle"
     __table_args__ = (UniqueConstraint("student_id", "period", name="uq_fee_cycle_student_period"),)
 
@@ -44,6 +58,22 @@ class FeeCycle(SQLModel, table=True):
     )
     discount_value: Optional[Decimal] = Field(default=None, max_digits=10, decimal_places=2)
     discount_amount: Decimal = Field(default=Decimal("0.00"), max_digits=10, decimal_places=2)
+
+    # Snapshotted like everything above -- the exam fee amount in effect
+    # for this student's period at generation/apply time (see
+    # app.services.exam_fee). Zero for every student except those with an
+    # active School enrollment in a period an exam fee was applied to.
+    # Already folded into total_due/subtotal, not an extra amount on top
+    # of them -- kept as its own column purely so the invoice can show it
+    # as a separate line item instead of silently inflating the School
+    # category amount.
+    exam_fee: Decimal = Field(default=Decimal("0.00"), max_digits=10, decimal_places=2)
+
+    # How much of total_due has actually been collected so far -- 0 for a
+    # never-touched UNPAID cycle, == total_due once PAID, and anything in
+    # between for PARTIAL. See app.services.fee_payments for the
+    # due-carry-forward payment flow that writes this.
+    amount_paid: Decimal = Field(default=Decimal("0.00"), max_digits=10, decimal_places=2)
 
     status: FeeCycleStatus = Field(
         default=FeeCycleStatus.UNPAID,

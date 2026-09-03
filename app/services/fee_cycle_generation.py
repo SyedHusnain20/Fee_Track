@@ -15,6 +15,13 @@ gets snapshotted onto the FeeCycle row, not just the bottom-line total —
 category_breakdown, subtotal, discount_type/value/amount all freeze at
 generation time alongside total_due, for the itemized invoice.
 
+Exam fee (see app.services.exam_fee): if an exam fee has been applied for
+this period and the student has an active School enrollment, it's folded
+into subtotal/total_due here too, at generation time — a student whose
+cycle didn't exist yet when "Apply exam fee" was clicked still gets it
+the moment their cycle is generated, same as one whose cycle already
+existed.
+
 Per Key Design Principle #7, every row created here writes through the
 audit-log hook.
 """
@@ -25,10 +32,11 @@ from decimal import Decimal
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
-from app.models.enums import AuditAction, FeeCycleStatus
+from app.models.enums import AuditAction, FeeCategory, FeeCycleStatus
 from app.models.fee_cycle import FeeCycle
 from app.models.student import Student
 from app.services.audit import write_audit_log
+from app.services.exam_fee import get_exam_fee_amount
 from app.services.fees import compute_fee_breakdowns_bulk
 
 PERIOD_PATTERN = re.compile(r"^\d{4}-(0[1-9]|1[0-2])$")
@@ -63,6 +71,7 @@ def generate_fee_cycles(session: Session, period: str, admin_id: int) -> dict:
     # monthly run. Computed in bulk up front instead — same breakdowns,
     # a small fixed number of queries total regardless of student count.
     breakdowns = compute_fee_breakdowns_bulk(session, students)
+    exam_fee_amount = get_exam_fee_amount(session, period)
 
     created = 0
     skipped_existing = 0
@@ -74,18 +83,24 @@ def generate_fee_cycles(session: Session, period: str, admin_id: int) -> dict:
             continue
 
         breakdown = breakdowns[student.id]
-        if breakdown["final_total"] <= Decimal("0.00"):
+        is_school_student = FeeCategory.SCHOOL in breakdown["category_amounts"]
+        exam_fee = exam_fee_amount if (is_school_student and exam_fee_amount > 0) else Decimal("0.00")
+
+        subtotal = breakdown["subtotal"] + exam_fee
+        total_due = breakdown["final_total"] + exam_fee
+        if total_due <= Decimal("0.00"):
             skipped_zero_due += 1
             continue
 
         cycle = FeeCycle(
             student_id=student.id,
             period=period,
-            total_due=breakdown["final_total"],
-            subtotal=breakdown["subtotal"],
+            total_due=total_due,
+            subtotal=subtotal,
             discount_type=breakdown["discount_type"],
             discount_value=breakdown["discount_value"],
             discount_amount=breakdown["discount_amount"],
+            exam_fee=exam_fee,
             category_breakdown={
                 category.value: str(amount)
                 for category, amount in breakdown["category_amounts"].items()
@@ -110,6 +125,7 @@ def generate_fee_cycles(session: Session, period: str, admin_id: int) -> dict:
                 "subtotal": float(cycle.subtotal),
                 "discount_type": cycle.discount_type.value,
                 "discount_amount": float(cycle.discount_amount),
+                "exam_fee": float(cycle.exam_fee),
                 "category_breakdown": cycle.category_breakdown,
                 "status": cycle.status.value,
             },

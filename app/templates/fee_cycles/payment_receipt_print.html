@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Print {{ receipt_number }}</title>
+</head>
+<body>
+
+    {% include "fee_cycles/_payment_receipt_thermal.html" %}
+
+    <script>
+        // Same "only ever opened via window.open() from the Print button"
+        // rationale as invoice_print.html -- window.close() below is only
+        // allowed to run because this page was script-opened, not
+        // navigated to directly.
+        window.onload = () => window.print();
+        window.onafterprint = () => window.close();
+    </script>
+
+</body>
+</html>

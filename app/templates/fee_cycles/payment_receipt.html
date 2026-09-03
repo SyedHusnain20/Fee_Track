@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Receipt {{ receipt_number }} — Fee Track</title>
+    <style>
+        @media screen {
+            .toolbar {
+                max-width: 760px;
+                margin: 20px auto 0;
+                padding: 0 4px;
+                display: flex;
+                justify-content: flex-end;
+                gap: 10px;
+                font-family: Helvetica, Arial, sans-serif;
+            }
+            .toolbar a, .toolbar button {
+                font: inherit;
+                font-size: 9.5pt;
+                font-weight: 600;
+                border-radius: 6px;
+                padding: 8px 16px;
+                cursor: pointer;
+                text-decoration: none;
+            }
+            .toolbar a {
+                background: #0f172a;
+                color: #ffffff;
+                border: 1px solid #0f172a;
+            }
+            .toolbar a:hover { background: #1e293b; }
+            .toolbar button {
+                background: #ffffff;
+                color: #334155;
+                border: 1px solid #cbd5e1;
+            }
+            .toolbar button:hover { background: #f8fafc; }
+        }
+        /* Same rationale as invoice.html's equivalent block -- the Print
+           button opens a separate thermal popup, but Ctrl+P on this page
+           directly should still hide the toolbar from the printout. */
+        @media print {
+            .toolbar { display: none; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="toolbar">
+        <button type="button" onclick="window.open('/fee-cycles/payments/{{ payment.id }}/receipt/print', 'thermal-print-{{ payment.id }}', 'width=420,height=640')">Print</button>
+        <a href="/fee-cycles/payments/{{ payment.id }}/receipt.pdf">Download PDF</a>
+    </div>
+
+    {% include "fee_cycles/_payment_receipt_document.html" %}
+
+</body>
+</html>

@@ -56,7 +56,8 @@
         <tbody class="divide-y divide-slate-100">
             {% for row in rows %}
             {% set student = row.student %}
-            <tr class="{% if not student.is_active %}opacity-50{% elif row.is_overdue %}bg-red-50{% endif %}">
+            <tr class="cursor-pointer hover:bg-slate-100 {% if not student.is_active %}opacity-50{% elif row.is_overdue %}bg-red-50{% endif %}"
+                onclick="if (!event.target.closest('a, button, form')) { window.location.href = '/students/{{ student.id }}'; }">
                 <td class="px-4 py-3 align-top font-mono text-slate-700">{{ student.roll_number }}</td>
                 <td class="px-4 py-3 align-top text-slate-900">{{ student.name }}</td>
                 <td class="px-4 py-3 align-top text-slate-500">{{ student.father_name }}</td>
@@ -83,7 +84,6 @@
                     {% endif %}
                 </td>
                 <td class="px-4 py-3 align-top text-right space-x-3">
-                    <a href="/students/{{ student.id }}" class="text-slate-600 hover:text-slate-900">View</a>
                     <a href="/students/{{ student.id }}/edit" class="text-slate-600 hover:text-slate-900">Edit</a>
                     {% if student.is_active %}
                     <form method="post" action="/students/{{ student.id }}/deactivate" class="inline" onsubmit="return confirm('Deactivate {{ student.name }}?');">

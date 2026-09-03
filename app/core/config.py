@@ -15,6 +15,14 @@ class Settings(BaseSettings):
     SECRET_KEY: str
 
     # --- Database ---
+    # DATABASE_URL, if set, is used as-is (this is the Neon case — Neon
+    # gives you one connection string with sslmode=require baked in, and
+    # trying to decompose that into the POSTGRES_* fields below is more
+    # error-prone than just using it directly). When DATABASE_URL is unset,
+    # the fields below compose a local/self-hosted connection string
+    # instead — this is what keeps docker-compose's local "db" service
+    # working unchanged for anyone not on Neon.
+    DATABASE_URL_OVERRIDE: str | None = None
     POSTGRES_USER: str = "raabta"
     POSTGRES_PASSWORD: str
     POSTGRES_DB: str = "raabta"
@@ -23,6 +31,8 @@ class Settings(BaseSettings):
 
     @property
     def DATABASE_URL(self) -> str:
+        if self.DATABASE_URL_OVERRIDE:
+            return self.DATABASE_URL_OVERRIDE
         return (
             f"postgresql+psycopg2://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}"
             f"@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"

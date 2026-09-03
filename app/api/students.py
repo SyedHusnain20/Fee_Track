@@ -58,6 +58,7 @@ from app.models.fee_cycle import FeeCycle
 from app.models.student import Student
 from app.services.audit import write_audit_log
 from app.services.fee_settings import get_fee_due_day
+from app.services.fee_payments import get_outstanding_summary
 from app.services.holidays import get_holiday_dates_in_range
 from app.services.fees import (
     apply_discount,
@@ -164,6 +165,16 @@ def build_student_detail_context(
         select(FeeCycle).where(FeeCycle.student_id == student.id).order_by(FeeCycle.period.desc())
     ).all()
 
+    # Same due-carry-forward outstanding summary the fee cycles list page
+    # shows -- see app.services.fee_payments. Keyed by cycle id so the
+    # template can look up "what would paying THIS row settle" for
+    # whichever cycle the admin clicks Pay on.
+    outstanding_by_cycle = {
+        cycle.id: get_outstanding_summary(session, cycle)
+        for cycle in fee_cycles
+        if cycle.status != FeeCycleStatus.PAID
+    }
+
     # Last-6-active-days attendance strip, split into School and Academy
     # rows since a student can be enrolled in both simultaneously and each
     # is tracked as a separate kiosk session (see the AttendanceSession
@@ -247,6 +258,7 @@ def build_student_detail_context(
         "discount_amount": fee_breakdown["discount_amount"],
         "total_fee": fee_breakdown["final_total"],
         "fee_cycles": fee_cycles,
+        "outstanding_by_cycle": outstanding_by_cycle,
         "enrollment_error": enrollment_error,
         "show_school_attendance": show_school_attendance,
         "show_academy_attendance": show_academy_attendance,
@@ -292,7 +304,7 @@ async def list_students(
     if page < 1:
         page = 1
 
-    base_query = select(Student)
+    base_query = select(Student).join(ClassLevel, Student.class_level_id == ClassLevel.id)
 
     search_term = (search or "").strip()
     if search_term:
@@ -346,7 +358,12 @@ async def list_students(
     page_query = (
         base_query
         .options(selectinload(Student.class_level))
-        .order_by(Student.roll_number)
+        # Ascending by class level (Foundation 1, 2, 3, then Class 1, 2, ...
+        # 12 -- class_offset is defined exactly for this ordering, see
+        # scripts/seed_reference_data.py), roll_number as the tie-breaker
+        # within the same class so the list stays stable rather than
+        # reshuffling on every page load.
+        .order_by(ClassLevel.class_offset, Student.roll_number)
         .offset((page - 1) * PAGE_SIZE)
         .limit(PAGE_SIZE)
     )
@@ -440,15 +457,13 @@ async def list_students(
         # Fee Status column: plain "is this month's cycle paid?" — distinct
         # from is_overdue above, which additionally requires being past the
         # configured due day and actually owing money before it turns the
-        # row red. A student can show "Unpaid" here before the due day
-        # without the row being highlighted yet. Per explicit decision: a
-        # student with no active enrollments never gets a FeeCycle
-        # generated at all (fee_cycle_generation.py skips zero-due students
-        # outright), so they show "Unpaid" permanently rather than "N/A" —
-        # intentional, not a bug.
-        fee_status = "Paid" if (
-            cycle is not None and cycle.status == FeeCycleStatus.PAID
-        ) else "Unpaid"
+        # row red. A student can show "Unpaid"/"Partial" here before the
+        # due day without the row being highlighted yet. Per explicit
+        # decision: a student with no active enrollments never gets a
+        # FeeCycle generated at all (fee_cycle_generation.py skips
+        # zero-due students outright), so they show "Unpaid" permanently
+        # rather than "N/A" — intentional, not a bug.
+        fee_status = cycle.status.value.capitalize() if cycle is not None else "Unpaid"
         rows.append({
             "student": student,
             "total_fee": total_fee,
@@ -497,6 +512,7 @@ async def new_student_form(
             "selected_categories": [],
             "submitted_discount_type": DiscountType.NONE,
             "submitted_discount_value": "",
+            "submitted_is_freeship": False,
             "custom_fee_field_names": CUSTOM_FEE_FIELD_NAMES,
             "submitted_custom_fees": {},
             "custom_fee_errors": {},
@@ -521,9 +537,11 @@ async def create_student(
     custom_fee_computer: str = Form(""),
     discount_type: DiscountType = Form(DiscountType.NONE),
     discount_value: str = Form(""),
+    is_freeship: str = Form("no"),
     session: Session = Depends(get_session),
     admin: AdminUser = Depends(get_current_admin),
 ):
+    freeship = is_freeship == "yes"
     class_levels = session.exec(select(ClassLevel).order_by(ClassLevel.class_offset)).all()
     custom_fee_inputs = {
         FeeCategory.SCHOOL: custom_fee_school,
@@ -551,6 +569,7 @@ async def create_student(
                 "selected_categories": categories,
                 "submitted_discount_type": discount_type,
                 "submitted_discount_value": discount_value,
+                "submitted_is_freeship": freeship,
                 "custom_fee_field_names": CUSTOM_FEE_FIELD_NAMES,
                 "submitted_custom_fees": custom_fee_inputs,
                 "custom_fee_errors": custom_fee_errors or {},
@@ -627,6 +646,7 @@ async def create_student(
         is_active=True,
         discount_type=discount_type,
         discount_value=parsed_discount_value,
+        is_freeship=freeship,
     )
     session.add(student)
     session.flush()  # need student.id for the enrollments below
@@ -671,13 +691,18 @@ async def create_student(
 async def student_detail(
     student_id: int,
     request: Request,
+    error: Optional[str] = None,
     session: Session = Depends(get_session),
     admin: AdminUser = Depends(get_current_admin),
 ):
     student = session.get(Student, student_id)
     if not student:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Student not found.")
-    context = build_student_detail_context(request, session, admin, student)
+    # Reuses the same "enrollment_error" banner slot for any error redirected
+    # back here with ?error=... — e.g. a rejected payment amount from
+    # /fee-cycles/{id}/record-payment (see app/api/fee_cycles.py). The
+    # banner itself is generic in the template despite the parameter name.
+    context = build_student_detail_context(request, session, admin, student, enrollment_error=error)
     return templates.TemplateResponse("students/detail.html", context)
 
 

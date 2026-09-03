@@ -18,6 +18,13 @@ until migration a3f9c81b2d47 moved it here). This changes what "the fee
 for category X" means: get_band_fee() still returns each category's raw,
 undiscounted band rate — the discount is only ever visible in the
 combined total, never attributed to one category over another.
+
+Freeship (Student.is_freeship) is a separate, all-or-nothing override on
+top of all of this — set at student-add/edit time, independent of
+discount_type/value and independent of which categories the student is
+enrolled in. A freeship student's breakdown is short-circuited to empty/
+zero before enrollments or bands are even looked at; see the top of
+compute_student_fee_breakdown() and compute_fee_breakdowns_bulk() below.
 """
 
 from decimal import Decimal, InvalidOperation
@@ -141,6 +148,22 @@ def compute_student_fee_breakdown(session: Session, student: Student) -> dict:
     """
     class_offset = student.class_level.class_offset
 
+    # Freeship short-circuits everything below -- no enrollments are even
+    # looked at, so a freeship student's fee is 0 regardless of which (or
+    # how many) categories they're enrolled in, and regardless of their
+    # own discount_type/discount_value (which are still returned as-is,
+    # since they're the student's actual settings, but contribute nothing
+    # to a total that's already zero).
+    if student.is_freeship:
+        return {
+            "category_amounts": {},
+            "subtotal": ZERO,
+            "discount_type": student.discount_type,
+            "discount_value": student.discount_value,
+            "discount_amount": ZERO,
+            "final_total": ZERO,
+        }
+
     active_enrollments = session.exec(
         select(Enrollment).where(
             Enrollment.student_id == student.id,
@@ -232,6 +255,19 @@ def compute_fee_breakdowns_bulk(session: Session, students: list) -> dict:
 
     breakdowns: dict = {}
     for student in students:
+        if student.is_freeship:
+            # Same short-circuit as compute_student_fee_breakdown() above
+            # -- skip enrollments/bands entirely for a freeship student.
+            breakdowns[student.id] = {
+                "category_amounts": {},
+                "subtotal": ZERO,
+                "discount_type": student.discount_type,
+                "discount_value": student.discount_value,
+                "discount_amount": ZERO,
+                "final_total": ZERO,
+            }
+            continue
+
         class_offset = student.class_level.class_offset
         category_amounts: dict = {}
         subtotal = ZERO

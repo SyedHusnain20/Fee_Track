@@ -1,9 +1,6 @@
 <style>
-    /* 80mm roll, ~42 chars/line. margin:0 on @page — thermal printer
-       drivers apply their own hardware margin, and an extra CSS page
-       margin on top of that tends to push content off a continuous
-       roll or get silently ignored/doubled depending on the driver.
-       Breathing room instead comes from padding on .receipt below. */
+    /* 80mm roll, ~42 chars/line -- see _invoice_thermal.html's header
+       comment for the margin/driver rationale, identical here. */
     @page {
         size: 80mm auto;
         margin: 0;
@@ -55,16 +52,17 @@
     }
     .receipt__item-desc { flex: 1; padding-right: 6px; }
     .receipt__item-amt { white-space: nowrap; }
-    .receipt__item-note {
-        font-size: 8pt;
-        font-style: italic;
-        margin-top: 1mm;
-    }
 
     .receipt__total {
         display: flex;
         justify-content: space-between;
         font-size: 11.5pt;
+        font-weight: 700;
+        margin-top: 1mm;
+    }
+    .receipt__remaining {
+        display: flex;
+        justify-content: space-between;
         font-weight: 700;
         margin-top: 1mm;
     }
@@ -80,52 +78,62 @@
 <div class="receipt">
     <div class="receipt__center">
         <img src="{{ logo_data_uri }}" alt="Apex Academy" class="receipt__logo">
-        <div class="receipt__tag">Fee Payment Invoice</div>
+        <div class="receipt__tag">Fee Payment Receipt</div>
         <div class="receipt__paid">*** PAID ***</div>
     </div>
 
     <div class="receipt__rule"></div>
 
-    <div class="receipt__row"><span class="receipt__row-label">Invoice #</span><span class="receipt__row-value">{{ invoice_number }}</span></div>
-    <div class="receipt__row"><span class="receipt__row-label">Student</span><span class="receipt__row-value">{{ student.name }}</span></div>
+    <div class="receipt__row"><span class="receipt__row-label">Invoice #</span><span class="receipt__row-value">{{ receipt_number }}</span></div>
     <div class="receipt__row"><span class="receipt__row-label">Roll #</span><span class="receipt__row-value">{{ student.roll_number }}</span></div>
     <div class="receipt__row"><span class="receipt__row-label">Class</span><span class="receipt__row-value">{{ student.class_level.name }}</span></div>
-    <div class="receipt__row"><span class="receipt__row-label">Period</span><span class="receipt__row-value">{{ cycle.period }}</span></div>
-    <div class="receipt__row"><span class="receipt__row-label">Paid on</span><span class="receipt__row-value">{{ cycle.paid_date.strftime('%d %b %Y') if cycle.paid_date else '-' }}</span></div>
+    <div class="receipt__row"><span class="receipt__row-label">Period</span><span class="receipt__row-value">{{ anchor_cycle.period if anchor_cycle else "—" }}</span></div>
+    <div class="receipt__row"><span class="receipt__row-label">Paid on</span><span class="receipt__row-value">{{ payment.created_at.strftime('%d %b %Y') }}</span></div>
     <div class="receipt__row"><span class="receipt__row-label">Collected by</span><span class="receipt__row-value">{{ collected_by.name if collected_by else "-" }}</span></div>
 
     <div class="receipt__rule"></div>
 
-    {% if cycle.category_breakdown %}
+    {% if anchor_cycle and anchor_cycle.category_breakdown %}
     {% for category_value in category_order %}
-    {% if category_value in cycle.category_breakdown %}
+    {% if category_value in anchor_cycle.category_breakdown %}
     <div class="receipt__item">
-        <span class="receipt__item-desc">{{ category_labels[category_value] }} ({{ cycle.period }})</span>
-        <span class="receipt__item-amt">Rs {{ "%.2f"|format(cycle.category_breakdown[category_value]|float) }}</span>
+        <span class="receipt__item-desc">{{ category_labels[category_value] }} ({{ period_short }})</span>
+        <span class="receipt__item-amt">Rs {{ "%.2f"|format(anchor_cycle.category_breakdown[category_value]|float) }}</span>
     </div>
     {% endif %}
     {% endfor %}
+    {% if anchor_cycle.exam_fee and anchor_cycle.exam_fee > 0 %}
+    <div class="receipt__item">
+        <span class="receipt__item-desc">Exam Fee ({{ period_short }})</span>
+        <span class="receipt__item-amt">Rs {{ "%.2f"|format(anchor_cycle.exam_fee) }}</span>
+    </div>
+    {% endif %}
     {% else %}
     <div class="receipt__item">
-        <span class="receipt__item-desc">Fee for {{ cycle.period }}</span>
-        <span class="receipt__item-amt">Rs {{ "%.2f"|format(cycle.subtotal) }}</span>
+        <span class="receipt__item-desc">Fee for {{ anchor_cycle.period if anchor_cycle else "—" }}</span>
+        <span class="receipt__item-amt">Rs {{ "%.2f"|format(payment.current_month_due) }}</span>
     </div>
-    <div class="receipt__item-note">Itemized breakdown not available for this invoice.</div>
     {% endif %}
 
     <div class="receipt__rule"></div>
 
-    <div class="receipt__row"><span class="receipt__row-label">Subtotal</span><span class="receipt__row-value">Rs {{ "%.2f"|format(cycle.subtotal) }}</span></div>
-    {% if cycle.discount_type.value != "none" %}
+    <div class="receipt__row"><span class="receipt__row-label">This month's fee</span><span class="receipt__row-value">Rs {{ "%.2f"|format(anchor_cycle.subtotal if anchor_cycle else payment.current_month_due) }}</span></div>
+    {% if anchor_cycle and anchor_cycle.discount_type.value != "none" %}
     <div class="receipt__row">
-        <span class="receipt__row-label">Discount{% if cycle.discount_type.value == "percentage" %} ({{ cycle.discount_value }}%){% endif %}</span>
-        <span class="receipt__row-value">-Rs {{ "%.2f"|format(cycle.discount_amount) }}</span>
+        <span class="receipt__row-label">Discount{% if anchor_cycle.discount_type.value == "percentage" %} ({{ anchor_cycle.discount_value }}%){% endif %}</span>
+        <span class="receipt__row-value">-Rs {{ "%.2f"|format(anchor_cycle.discount_amount) }}</span>
     </div>
+    {% endif %}
+    {% if payment.previous_due_months > 0 %}
+    <div class="receipt__row"><span class="receipt__row-label">Prev. due ({{ payment.previous_due_months }} mo.)</span><span class="receipt__row-value">Rs {{ "%.2f"|format(payment.previous_due_amount) }}</span></div>
     {% endif %}
 
     <div class="receipt__rule"></div>
 
-    <div class="receipt__total"><span>TOTAL PAID</span><span>Rs {{ "%.2f"|format(cycle.total_due) }}</span></div>
+    <div class="receipt__total"><span>PAID NOW</span><span>Rs {{ "%.2f"|format(payment.amount_paid) }}</span></div>
+    {% if payment.remaining_due > 0 %}
+    <div class="receipt__remaining"><span>REMAINING</span><span>Rs {{ "%.2f"|format(payment.remaining_due) }}</span></div>
+    {% endif %}
 
     <div class="receipt__rule"></div>
 

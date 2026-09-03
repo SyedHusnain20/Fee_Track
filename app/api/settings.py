@@ -10,11 +10,15 @@ app.services.fee_settings), a period-scoped Financial Summary (the actual
 Rs revenue/collected/outstanding figures — moved here from /fee-cycles,
 since those are sensitive financial figures that shouldn't be visible to
 every admin who opens that page; /fee-cycles itself now only shows
-non-sensitive student counts), plus links out to Rollover, Category Fees,
-and Admin Requests, all of which used to have their own top-nav entries
-(or in Admin Requests' case, live in admin_accounts.py) and now live only
-here. Their routes/logic are unchanged — this page just adds a front door
-to them.
+non-sensitive student counts), the Exam Fee apply control (moved here
+from /fee-cycles for the same reason — setting a per-period School-only
+charge is a financial decision, not something every admin should be able
+to trigger; /fee-cycles still shows the currently-applied amount
+read-only, via get_exam_fee_amount, but only this page can change it),
+plus links out to Rollover, Category Fees, and Admin Requests, all of
+which used to have their own top-nav entries (or in Admin Requests' case,
+live in admin_accounts.py) and now live only here. Their routes/logic are
+unchanged — this page just adds a front door to them.
 
 Every route in this module requires require_super_admin (app.api.deps),
 not the plain get_current_admin used elsewhere — regular admins can use
@@ -25,7 +29,7 @@ is the actual enforcement.
 """
 
 from datetime import time
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Form, Request, status
@@ -37,13 +41,15 @@ from app.api.deps import require_super_admin
 from app.core.database import get_session
 from app.core.timezone import school_today
 from app.models.admin_user import AdminUser
-from app.models.enums import AttendanceSession, FeeCycleStatus
+from app.models.enums import AttendanceSession
 from app.models.fee_cycle import FeeCycle
 from app.services.attendance_settings import (
     get_session_grace_minutes,
     get_session_start_time,
     set_session_timing,
 )
+from app.services.exam_fee import apply_exam_fee, get_exam_fee_amount
+from app.services.fee_cycle_generation import PERIOD_PATTERN
 from app.services.fee_settings import get_fee_due_day, set_fee_due_day
 from app.services.holidays import list_recent_holidays, mark_holiday
 
@@ -64,12 +70,13 @@ def _current_period() -> str:
 def _financial_totals(session: Session, period: str) -> dict:
     cycles = session.exec(select(FeeCycle).where(FeeCycle.period == period)).all()
     total_revenue = sum((c.total_due for c in cycles), Decimal("0.00"))
-    total_collected = sum(
-        (c.total_due for c in cycles if c.status == FeeCycleStatus.PAID), Decimal("0.00")
-    )
-    total_outstanding = sum(
-        (c.total_due for c in cycles if c.status == FeeCycleStatus.UNPAID), Decimal("0.00")
-    )
+    # Collected/outstanding are derived from amount_paid rather than
+    # branching on status, so a PARTIAL cycle contributes its actual
+    # collected slice to "collected" and its actual remaining slice to
+    # "outstanding" instead of falling entirely into one bucket or the
+    # other the way a plain PAID/UNPAID split would.
+    total_collected = sum((c.amount_paid for c in cycles), Decimal("0.00"))
+    total_outstanding = sum((c.total_due - c.amount_paid for c in cycles), Decimal("0.00"))
     return {
         "fin_period": period,
         "total_revenue": total_revenue,
@@ -125,6 +132,21 @@ def _pending_admin_count(session: Session) -> int:
     )
 
 
+def _parse_exam_fee_amount(raw: str) -> Decimal:
+    """Exam fee is a whole-rupee integer per the original spec ("takes
+    integer as an input") — unlike payment amounts elsewhere, which allow
+    paisa/decimals."""
+    try:
+        value = Decimal(raw)
+    except (InvalidOperation, TypeError):
+        raise ValueError("Exam fee must be a valid whole number.")
+    if value != value.to_integral_value():
+        raise ValueError("Exam fee must be a whole number.")
+    if value < 0:
+        raise ValueError("Exam fee can't be negative.")
+    return value
+
+
 def _base_context(
     request: Request,
     session: Session,
@@ -135,12 +157,15 @@ def _base_context(
     due_day: Optional[int] = None,
     due_day_error: Optional[str] = None,
     holiday_error: Optional[str] = None,
+    exam_fee_period: Optional[str] = None,
+    exam_fee_error: Optional[str] = None,
 ) -> dict:
     """Shared template context for every settings/list.html render — GET
     and every POST's re-render-with-error path all show the same page, so
-    this keeps the five different handlers below from silently drifting
+    this keeps the six different handlers below from silently drifting
     out of sync on which keys the template expects (rows, holidays, the
-    three independent error slots, etc.)."""
+    error slots, etc.)."""
+    resolved_exam_fee_period = exam_fee_period or _current_period()
     return {
         "request": request,
         "admin": admin,
@@ -151,6 +176,9 @@ def _base_context(
         "holidays": _holiday_rows(session),
         "holiday_error": holiday_error,
         "pending_admin_count": _pending_admin_count(session),
+        "exam_fee_period": resolved_exam_fee_period,
+        "exam_fee_amount": get_exam_fee_amount(session, resolved_exam_fee_period),
+        "exam_fee_error": exam_fee_error,
         **_financial_totals(session, period or _current_period()),
     }
 
@@ -159,12 +187,48 @@ def _base_context(
 async def list_settings(
     request: Request,
     period: Optional[str] = None,
+    exam_fee_period: Optional[str] = None,
     session: Session = Depends(get_session),
     admin: AdminUser = Depends(require_super_admin),
 ):
     return templates.TemplateResponse(
         "settings/list.html",
-        _base_context(request, session, admin, period=period),
+        _base_context(request, session, admin, period=period, exam_fee_period=exam_fee_period),
+    )
+
+
+@router.post("/exam-fee/apply")
+async def apply_exam_fee_route(
+    request: Request,
+    period: str = Form(...),
+    amount: str = Form(...),
+    session: Session = Depends(get_session),
+    admin: AdminUser = Depends(require_super_admin),
+):
+    if not PERIOD_PATTERN.match(period):
+        return templates.TemplateResponse(
+            "settings/list.html",
+            _base_context(
+                request, session, admin, exam_fee_period=period, exam_fee_error="Invalid period."
+            ),
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+
+    try:
+        amount_value = _parse_exam_fee_amount(amount)
+    except ValueError as exc:
+        return templates.TemplateResponse(
+            "settings/list.html",
+            _base_context(
+                request, session, admin, exam_fee_period=period, exam_fee_error=str(exc)
+            ),
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+
+    apply_exam_fee(session, period=period, amount=amount_value, admin_id=admin.id)
+    session.commit()
+    return RedirectResponse(
+        url=f"/settings?exam_fee_period={period}", status_code=status.HTTP_303_SEE_OTHER
     )
 
 

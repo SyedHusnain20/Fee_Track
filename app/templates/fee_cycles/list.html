@@ -33,8 +33,18 @@
             Generate
         </button>
     </form>
+
+    {% if exam_fee_amount and exam_fee_amount > 0 %}
+    <p class="text-xs text-slate-500 pb-2">
+        Exam fee of Rs {{ "%.0f"|format(exam_fee_amount) }} applied for {{ period }} (School only).
+        <a href="/settings" class="underline hover:text-slate-800">Manage in Settings</a>.
+    </p>
+    {% endif %}
 </div>
 
+{% if error %}
+<div class="text-sm text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-2 mb-6">{{ error }}</div>
+{% endif %}
 {% if message %}
 <div class="text-sm text-slate-700 bg-slate-100 border border-slate-200 rounded-md px-3 py-2 mb-6">{{ message }}</div>
 {% endif %}
@@ -73,10 +83,24 @@
                 <td class="px-4 py-3 text-slate-900">
                     <a href="/students/{{ cycle.student_id }}" class="hover:underline">{{ cycle.student.name }}</a>
                 </td>
-                <td class="px-4 py-3 text-slate-700">Rs {{ "%.2f"|format(cycle.total_due) }}</td>
+                <td class="px-4 py-3 text-slate-700">
+                    {% set outstanding = outstanding_by_cycle.get(cycle.id) %}
+                    {% if outstanding %}
+                    Rs {{ "%.2f"|format(outstanding.total_outstanding) }}
+                    {% if outstanding.previous_due_months > 0 %}
+                    <div class="text-xs text-amber-600">
+                        incl. Rs {{ "%.2f"|format(outstanding.previous_due_amount) }} carried over from {{ outstanding.previous_due_months }} month{{ "s" if outstanding.previous_due_months != 1 else "" }}
+                    </div>
+                    {% endif %}
+                    {% else %}
+                    Rs {{ "%.2f"|format(cycle.total_due) }}
+                    {% endif %}
+                </td>
                 <td class="px-4 py-3">
                     {% if cycle.status.value == "paid" %}
                     <span class="text-xs font-medium text-green-700 bg-green-50 px-2 py-1 rounded">Paid</span>
+                    {% elif cycle.status.value == "partial" %}
+                    <span class="text-xs font-medium text-blue-700 bg-blue-50 px-2 py-1 rounded">Partial</span>
                     {% else %}
                     <span class="text-xs font-medium text-amber-700 bg-amber-50 px-2 py-1 rounded">Unpaid</span>
                     {% endif %}
@@ -91,11 +115,12 @@
                         <button type="submit" class="text-xs text-slate-600 hover:text-slate-900 underline">Mark unpaid</button>
                     </form>
                     {% else %}
-                    <form method="post" action="/fee-cycles/{{ cycle.id }}/mark-paid" class="inline">
-                        <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
-                        <input type="hidden" name="next" value="/fee-cycles?period={{ period }}{% if search %}&search={{ search|urlencode }}{% endif %}">
-                        <button type="submit" class="text-xs text-green-700 hover:text-green-900 underline">Mark paid</button>
-                    </form>
+                    {% set outstanding = outstanding_by_cycle.get(cycle.id) %}
+                    <button type="button"
+                            onclick="openPaymentModal({{ cycle.id }}, '{{ cycle.student.name|e }}', {{ (outstanding.total_outstanding if outstanding else cycle.total_due)|float }}, {{ (outstanding.previous_due_amount if outstanding else 0)|float }}, {{ (outstanding.previous_due_months if outstanding else 0) }}, {{ (outstanding.current_month_due if outstanding else cycle.total_due)|float }}, '/fee-cycles?period={{ period }}{% if search %}&search={{ search|urlencode }}{% endif %}')"
+                            class="text-xs text-green-700 hover:text-green-900 underline">
+                        Pay
+                    </button>
                     {% endif %}
                 </td>
             </tr>
@@ -122,18 +147,78 @@
     <iframe id="invoice-modal-frame" src="about:blank" class="w-full h-[80vh] border-0"></iframe>
 </dialog>
 
+<dialog id="payment-modal" class="rounded-xl p-0 backdrop:bg-slate-900/50 w-[95vw] sm:w-full max-w-md">
+    <div class="flex justify-between items-center p-4 border-b border-slate-200">
+        <h3 class="text-sm font-semibold text-slate-900">Record payment — <span id="payment-modal-student"></span></h3>
+        <button type="button" onclick="document.getElementById('payment-modal').close()"
+                class="text-slate-400 hover:text-slate-700 text-sm px-2 py-1">&times;</button>
+    </div>
+    <form id="payment-modal-form" method="post" class="p-4 space-y-3">
+        <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
+        <input type="hidden" name="next" id="payment-modal-next">
+
+        <dl class="text-sm space-y-1 bg-slate-50 rounded-md p-3">
+            <div class="flex justify-between" id="payment-modal-previous-row">
+                <dt class="text-slate-500">Previous due (<span id="payment-modal-months"></span> month(s))</dt>
+                <dd class="text-slate-900" id="payment-modal-previous"></dd>
+            </div>
+            <div class="flex justify-between">
+                <dt class="text-slate-500">This month's fee</dt>
+                <dd class="text-slate-900" id="payment-modal-current"></dd>
+            </div>
+            <div class="flex justify-between font-semibold pt-1 border-t border-slate-200">
+                <dt class="text-slate-900">Total due</dt>
+                <dd class="text-slate-900" id="payment-modal-total"></dd>
+            </div>
+        </dl>
+
+        <div>
+            <label class="block text-xs font-medium text-slate-700 mb-1">Amount paid now</label>
+            <input type="number" name="amount_paid_now" id="payment-modal-amount" step="0.01" min="0.01" required
+                   class="w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm">
+        </div>
+
+        <button type="submit" class="w-full rounded-md bg-green-700 text-white text-sm font-medium py-2 hover:bg-green-800">
+            Record payment
+        </button>
+    </form>
+</dialog>
+
 <script>
+function openPaymentModal(cycleId, studentName, totalOutstanding, previousDue, previousMonths, currentMonthDue, nextUrl) {
+    document.getElementById("payment-modal-student").textContent = studentName;
+    document.getElementById("payment-modal-months").textContent = previousMonths;
+    document.getElementById("payment-modal-previous").textContent = "Rs " + previousDue.toFixed(2);
+    document.getElementById("payment-modal-previous-row").style.display = previousMonths > 0 ? "flex" : "none";
+    document.getElementById("payment-modal-current").textContent = "Rs " + currentMonthDue.toFixed(2);
+    document.getElementById("payment-modal-total").textContent = "Rs " + totalOutstanding.toFixed(2);
+    const amountInput = document.getElementById("payment-modal-amount");
+    amountInput.value = totalOutstanding.toFixed(2);
+    amountInput.max = totalOutstanding.toFixed(2);
+    document.getElementById("payment-modal-next").value = nextUrl;
+    document.getElementById("payment-modal-form").action = "/fee-cycles/" + cycleId + "/record-payment";
+    document.getElementById("payment-modal").showModal();
+}
+
 (function () {
-    // Set by /fee-cycles/{id}/mark-paid's redirect — pops the invoice up
-    // right after marking paid, without leaving this page. Query param
-    // is stripped from the URL bar afterward so refreshing doesn't
-    // reopen it.
+    // Set by /fee-cycles/{id}/record-payment's redirect — pops the
+    // receipt up right after recording a payment, without leaving this
+    // page. show_invoice still works the same way for the "Invoice" link
+    // on an already-fully-paid cycle. Query params are stripped from the
+    // URL bar afterward so refreshing doesn't reopen them.
     const params = new URLSearchParams(window.location.search);
     const cycleId = params.get("show_invoice");
+    const paymentId = params.get("show_receipt");
     if (cycleId) {
         document.getElementById("invoice-modal-frame").src = "/fee-cycles/" + cycleId + "/invoice";
         document.getElementById("invoice-modal").showModal();
+    } else if (paymentId) {
+        document.getElementById("invoice-modal-frame").src = "/fee-cycles/payments/" + paymentId + "/receipt";
+        document.getElementById("invoice-modal").showModal();
+    }
+    if (cycleId || paymentId) {
         params.delete("show_invoice");
+        params.delete("show_receipt");
         const rest = params.toString();
         history.replaceState(null, "", window.location.pathname + (rest ? "?" + rest : ""));
     }

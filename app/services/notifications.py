@@ -1,9 +1,9 @@
 """Fee-payment notifications for the super-admin navbar bell.
 
-One row per successful fee-cycle mark-paid event (see
-app/api/fee_cycles.py's mark_paid(), which calls create_fee_notification()
-right after committing the PAID status change) — surfaced only to super
-admins, never to regular admins.
+One row per successful payment transaction (see
+app/api/fee_cycles.py's record_payment_route(), which calls
+create_fee_notification() right after committing the payment) —
+surfaced only to super admins, never to regular admins.
 
 student_name, fee_amount, and collected_by_name are snapshotted at
 creation time rather than re-derived later, per the rationale already
@@ -25,7 +25,6 @@ from sqlalchemy import func
 from sqlmodel import Session, select
 
 from app.models.admin_user import AdminUser
-from app.models.fee_cycle import FeeCycle
 from app.models.notification import Notification
 from app.models.student import Student
 
@@ -45,18 +44,23 @@ def _prune_old(session: Session) -> None:
 
 def create_fee_notification(
     session: Session,
-    cycle: FeeCycle,
     student: Student,
+    fee_amount,
     admin: AdminUser,
 ) -> Notification:
-    """Snapshot a just-collected fee as a notification row. Caller
-    (mark_paid()) is expected to commit afterward — this only adds to the
-    session and flushes, same convention as app.services.holidays.mark_holiday.
+    """Snapshot a just-collected fee as a notification row. Caller is
+    expected to commit afterward — this only adds to the session and
+    flushes, same convention as app.services.holidays.mark_holiday.
+
+    fee_amount is passed explicitly (rather than read off a FeeCycle)
+    since a due-carry-forward payment (see app.services.fee_payments) can
+    settle several cycles in one transaction — the amount worth notifying
+    on is the actual payment amount, not any single cycle's total_due.
     """
     notification = Notification(
         student_id=student.id,
         student_name=student.name,
-        fee_amount=cycle.total_due,
+        fee_amount=fee_amount,
         collected_by_id=admin.id,
         collected_by_name=admin.name,
     )

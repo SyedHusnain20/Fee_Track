@@ -50,6 +50,33 @@
     </div>
 </div>
 
+<h2 class="text-sm font-semibold text-slate-700 mb-2">Exam fee</h2>
+<p class="text-sm text-slate-500 mb-3">
+    A one-off, School-only charge for a given month. Applying replaces whatever amount was set for that month before — it doesn't stack. Already-generated School students' cycles for that period are updated immediately; any School cycle generated later for the same period picks it up automatically too.
+</p>
+{% if exam_fee_error %}
+<div class="text-sm text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-2 mb-3">{{ exam_fee_error }}</div>
+{% endif %}
+<form method="post" action="/settings/exam-fee/apply" class="bg-white border border-slate-200 rounded-xl p-4 max-w-2xl mb-8 flex flex-wrap items-end gap-3">
+    <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
+    <div>
+        <label class="block text-xs text-slate-500 mb-1">Period</label>
+        <input type="month" name="period" value="{{ exam_fee_period }}"
+               class="rounded-md border border-slate-300 px-2 py-1.5 text-sm">
+    </div>
+    <div>
+        <label class="block text-xs text-slate-500 mb-1">Amount (Rs)</label>
+        <input type="number" name="amount" step="1" min="0" value="{{ exam_fee_amount|int if exam_fee_amount else '' }}"
+               placeholder="e.g. 500" class="w-32 rounded-md border border-slate-300 px-2 py-1.5 text-sm">
+    </div>
+    <button type="submit" class="rounded-md bg-slate-800 text-white text-sm font-medium px-4 py-1.5 hover:bg-slate-700">
+        Apply
+    </button>
+    {% if exam_fee_amount and exam_fee_amount > 0 %}
+    <span class="text-xs text-slate-500 pb-2">Currently Rs {{ "%.0f"|format(exam_fee_amount) }} for {{ exam_fee_period }}.</span>
+    {% endif %}
+</form>
+
 <h2 class="text-sm font-semibold text-slate-700 mb-2">Holidays</h2>
 <p class="text-sm text-slate-500 mb-3">
     Mark today as a day the school is closed, beyond the standing Sunday-off rule. This feeds attendance reports and teacher salary calculations — no one is marked absent today, even without a kiosk scan. Holidays can be marked here but not un-marked; double-check before confirming.

@@ -1,19 +1,12 @@
 <style>
-    /* Plain CSS on purpose — no Tailwind CDN here. That script injects
-       styles via JavaScript at runtime, which a real browser executes
-       but a headless PDF renderer (WeasyPrint) never does, so the PDF
-       export would come out completely unstyled. Keeping this file
-       framework-free also means the invoice renders identically with
-       or without internet access, same as the offline-first stance
-       R&R takes on its other billing tools. */
-
+    /* Plain CSS on purpose -- see _invoice_document.html's header comment
+       for why (no Tailwind CDN, so this renders identically for the
+       on-screen preview, the PDF export, and offline). */
     @page {
         size: A4;
         margin: 16mm 18mm 14mm 18mm;
     }
-
     * { box-sizing: border-box; }
-
     body {
         margin: 0;
         font-family: Helvetica, Arial, sans-serif;
@@ -21,12 +14,7 @@
         font-size: 10.5pt;
         line-height: 1.5;
     }
-
     .invoice { width: 100%; }
-
-    /* Only applies to the on-screen preview — WeasyPrint renders against
-       the "print" media type, so this block is skipped in the PDF and
-       @page's own margins are all that apply there. */
     @media screen {
         body { background: #f1f5f9; }
         .invoice {
@@ -38,7 +26,6 @@
             box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
         }
     }
-
     .invoice__header {
         display: flex;
         justify-content: space-between;
@@ -46,17 +33,6 @@
         gap: 16px;
         padding-bottom: 14px;
         border-bottom: 2.5px solid #0f172a;
-    }
-    .invoice__brand-name {
-        font-size: 19pt;
-        font-weight: 700;
-        letter-spacing: 0.02em;
-        color: #0f172a;
-    }
-    .invoice__brand-tag {
-        font-size: 9.5pt;
-        color: #64748b;
-        margin-top: 3px;
     }
     .invoice__meta { text-align: right; }
     .invoice__meta-label {
@@ -70,20 +46,8 @@
         font-size: 11pt;
         font-weight: 700;
         color: #0f172a;
-        margin: 2px 0 8px;
+        margin: 2px 0 0;
     }
-    .invoice__badge {
-        display: inline-block;
-        font-size: 8.5pt;
-        font-weight: 700;
-        letter-spacing: 0.08em;
-        color: #15803d;
-        background: #dcfce7;
-        border: 1px solid #86efac;
-        border-radius: 3px;
-        padding: 3px 10px;
-    }
-
     .invoice__grid {
         display: flex;
         gap: 32px;
@@ -105,7 +69,6 @@
         color: #0f172a;
         margin-bottom: 2px;
     }
-
     .invoice__table {
         width: 100%;
         border-collapse: collapse;
@@ -128,13 +91,6 @@
         font-size: 10pt;
         color: #334155;
     }
-    .invoice__table td.note {
-        font-size: 8.5pt;
-        font-style: italic;
-        color: #94a3b8;
-        padding-top: 0;
-    }
-
     .invoice__totals { margin-top: 4px; }
     .invoice__totals-row {
         display: flex;
@@ -144,7 +100,7 @@
         font-size: 10pt;
         color: #475569;
     }
-    .invoice__totals-row span:first-child { min-width: 160px; text-align: right; }
+    .invoice__totals-row span:first-child { min-width: 190px; text-align: right; }
     .invoice__totals-row span:last-child { min-width: 100px; text-align: right; }
     .invoice__totals-row--grand {
         margin-top: 4px;
@@ -154,7 +110,10 @@
         font-weight: 700;
         color: #0f172a;
     }
-
+    .invoice__totals-row--remaining {
+        color: #b45309;
+        font-weight: 700;
+    }
     .invoice__footer {
         margin-top: 34px;
         padding-top: 14px;
@@ -176,25 +135,25 @@
         </div>
         <div class="invoice__meta">
             <div class="invoice__meta-label">Invoice #</div>
-            <div class="invoice__number">{{ invoice_number }}</div>
-            <div class="invoice__badge">PAID</div>
+            <div class="invoice__number">{{ receipt_number }}</div>
         </div>
     </div>
 
     <div class="invoice__grid">
         <div>
-            <div class="invoice__label">Billed to</div>
-            <div class="invoice__value invoice__value--strong">{{ student.name }}</div>
-            <div class="invoice__value">Roll # {{ student.roll_number }}</div>
+            <div class="invoice__label">Student roll #</div>
+            <div class="invoice__value invoice__value--strong">{{ student.roll_number }}</div>
+            <div class="invoice__value">{{ student.name }}</div>
+            <div class="invoice__label invoice__label--spaced">Class</div>
             <div class="invoice__value">{{ student.class_level.name }}</div>
         </div>
         <div>
-            <div class="invoice__label">Billing period</div>
-            <div class="invoice__value invoice__value--strong">{{ cycle.period }}</div>
+            <div class="invoice__label">Period</div>
+            <div class="invoice__value invoice__value--strong">{{ anchor_cycle.period if anchor_cycle else "—" }}</div>
         </div>
         <div>
             <div class="invoice__label">Paid on</div>
-            <div class="invoice__value">{{ cycle.paid_date.strftime('%d %B %Y') if cycle.paid_date else '—' }}</div>
+            <div class="invoice__value">{{ payment.created_at.strftime('%d %B %Y') }}</div>
             <div class="invoice__label invoice__label--spaced">Collected by</div>
             <div class="invoice__value">{{ collected_by.name if collected_by else "—" }}</div>
         </div>
@@ -203,35 +162,30 @@
     <table class="invoice__table">
         <thead>
             <tr>
-                <th>Description</th>
+                <th>Program</th>
                 <th class="right">Amount</th>
             </tr>
         </thead>
         <tbody>
-            {% if cycle.category_breakdown %}
+            {% if anchor_cycle and anchor_cycle.category_breakdown %}
             {% for category_value in category_order %}
-            {% if category_value in cycle.category_breakdown %}
+            {% if category_value in anchor_cycle.category_breakdown %}
             <tr>
-                <td>{{ category_labels[category_value] }} ({{ cycle.period }})</td>
-                <td class="right">Rs {{ "%.2f"|format(cycle.category_breakdown[category_value]|float) }}</td>
+                <td>{{ category_labels[category_value] }} ({{ period_short }})</td>
+                <td class="right">Rs {{ "%.2f"|format(anchor_cycle.category_breakdown[category_value]|float) }}</td>
             </tr>
             {% endif %}
             {% endfor %}
-            {% if cycle.exam_fee and cycle.exam_fee > 0 %}
+            {% if anchor_cycle.exam_fee and anchor_cycle.exam_fee > 0 %}
             <tr>
-                <td>Exam Fee ({{ cycle.period }})</td>
-                <td class="right">Rs {{ "%.2f"|format(cycle.exam_fee) }}</td>
+                <td>Exam Fee ({{ period_short }})</td>
+                <td class="right">Rs {{ "%.2f"|format(anchor_cycle.exam_fee) }}</td>
             </tr>
             {% endif %}
             {% else %}
             <tr>
-                <td>Fee for {{ cycle.period }}</td>
-                <td class="right">Rs {{ "%.2f"|format(cycle.subtotal) }}</td>
-            </tr>
-            <tr>
-                <td class="note" colspan="2">
-                    Itemized breakdown not available for this invoice (generated before per-category itemization was added).
-                </td>
+                <td>Fee for {{ anchor_cycle.period if anchor_cycle else "—" }}</td>
+                <td class="right">Rs {{ "%.2f"|format(payment.current_month_due) }}</td>
             </tr>
             {% endif %}
         </tbody>
@@ -239,25 +193,37 @@
 
     <div class="invoice__totals">
         <div class="invoice__totals-row">
-            <span>Subtotal</span>
-            <span>Rs {{ "%.2f"|format(cycle.subtotal) }}</span>
+            <span>This month's fee</span>
+            <span>Rs {{ "%.2f"|format(anchor_cycle.subtotal if anchor_cycle else payment.current_month_due) }}</span>
         </div>
-        {% if cycle.discount_type.value != "none" %}
+        {% if anchor_cycle and anchor_cycle.discount_type.value != "none" %}
         <div class="invoice__totals-row">
-            <span>Discount ({{ discount_type_labels[cycle.discount_type.value] }}{% if cycle.discount_type.value == "percentage" %}, {{ cycle.discount_value }}%{% elif cycle.discount_value is not none %}, Rs {{ cycle.discount_value }}{% endif %})</span>
-            <span>&minus; Rs {{ "%.2f"|format(cycle.discount_amount) }}</span>
+            <span>Discount{% if anchor_cycle.discount_type.value == "percentage" %} ({{ anchor_cycle.discount_value }}%){% endif %}</span>
+            <span>&minus; Rs {{ "%.2f"|format(anchor_cycle.discount_amount) }}</span>
+        </div>
+        {% endif %}
+        {% if payment.previous_due_months > 0 %}
+        <div class="invoice__totals-row">
+            <span>Previous due (no. of months: {{ payment.previous_due_months }})</span>
+            <span>Rs {{ "%.2f"|format(payment.previous_due_amount) }}</span>
         </div>
         {% endif %}
         <div class="invoice__totals-row invoice__totals-row--grand">
-            <span>Total paid</span>
-            <span>Rs {{ "%.2f"|format(cycle.total_due) }}</span>
+            <span>Paid now</span>
+            <span>Rs {{ "%.2f"|format(payment.amount_paid) }}</span>
         </div>
+        {% if payment.remaining_due > 0 %}
+        <div class="invoice__totals-row invoice__totals-row--remaining">
+            <span>Amount remaining</span>
+            <span>Rs {{ "%.2f"|format(payment.remaining_due) }}</span>
+        </div>
+        {% endif %}
     </div>
 
     <div class="invoice__footer">
-        <p>This is a computer-generated invoice and does not require a signature.</p>
+        <p>Computer-generated &middot; no signature required</p>
         <p class="invoice__footer-brand">Powered by: R&amp;R Digital Solutions</p>
-        <p>Contact: 03126641281 | HasnainZainulabdin@gmail.com</p>
-        <p>Website: www.rrdigitalsolutions.org</p>
+        <p>03126641281</p>
+        <p>www.rrdigitalsolutions.org</p>
     </div>
 </div>

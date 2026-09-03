@@ -5,7 +5,9 @@ from app.models.audit_log import AuditLog
 from app.models.category_fee_default import CategoryFeeDefault
 from app.models.class_level import ClassLevel
 from app.models.enrollment import Enrollment
+from app.models.exam_fee_setting import ExamFeeSetting
 from app.models.fee_cycle import FeeCycle
+from app.models.fee_payment import FeePayment
 from app.models.holiday import Holiday
 from app.models.notification import Notification
 from app.models.roll_number_counter import RollNumberCounter
@@ -21,7 +23,9 @@ __all__ = [
     "CategoryFeeDefault",
     "ClassLevel",
     "Enrollment",
+    "ExamFeeSetting",
     "FeeCycle",
+    "FeePayment",
     "Holiday",
     "Notification",
     "RollNumberCounter",

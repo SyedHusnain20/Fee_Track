@@ -35,7 +35,7 @@ from app.core.database import get_session
 from app.core.timezone import school_today
 from app.models.admin_user import AdminUser
 from app.models.attendance_record import AttendanceRecord
-from app.models.enums import AttendanceSession, FeeCycleStatus, PunctualityStatus
+from app.models.enums import AttendanceSession, PunctualityStatus
 from app.models.fee_cycle import FeeCycle
 from app.models.student import Student
 from app.services.holidays import get_holiday_dates_in_range
@@ -158,7 +158,7 @@ async def fee_report(
                 else:
                     month_rows.append({
                         "period_label": _period_label(period),
-                        "status": "Paid" if cycle.status == FeeCycleStatus.PAID else "Unpaid",
+                        "status": cycle.status.value.capitalize(),
                         "paid_date": cycle.paid_date,
                         "total_due": cycle.total_due,
                     })

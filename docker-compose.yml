@@ -25,6 +25,12 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    # --workers left at 1 (default, no --workers flag) here since local
+    # Postgres round trips are sub-millisecond -- the blocking-event-loop
+    # problem multiple workers were added to work around only bites once
+    # queries have real network latency, i.e. Neon, not this. Fine to add
+    # --workers back later regardless (still safe/harmless locally), but
+    # not needed for local dev.
     expose:
       - "8000"
     environment:

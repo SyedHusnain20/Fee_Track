@@ -21,7 +21,8 @@
         </thead>
         <tbody class="divide-y divide-slate-100">
             {% for teacher in teachers %}
-            <tr class="{% if not teacher.is_active %}opacity-50{% endif %}">
+            <tr class="cursor-pointer hover:bg-slate-100 {% if not teacher.is_active %}opacity-50{% endif %}"
+                onclick="if (!event.target.closest('a, button, form')) { window.location.href = '/teachers/{{ teacher.id }}'; }">
                 <td class="px-4 py-3 font-mono text-slate-700">{{ teacher.staff_id }}</td>
                 <td class="px-4 py-3 text-slate-900">{{ teacher.name }}</td>
                 <td class="px-4 py-3">
@@ -32,7 +33,6 @@
                     {% endif %}
                 </td>
                 <td class="px-4 py-3 text-right space-x-3">
-                    <a href="/teachers/{{ teacher.id }}" class="text-slate-600 hover:text-slate-900">View</a>
                     <a href="/teachers/{{ teacher.id }}/id-card" target="_blank" class="text-slate-600 hover:text-slate-900">ID card</a>
                     <a href="/teachers/{{ teacher.id }}/edit" class="text-slate-600 hover:text-slate-900">Edit</a>
                     {% if teacher.is_active %}

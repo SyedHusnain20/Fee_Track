@@ -99,6 +99,27 @@
 
         {% if not student %}
         <div>
+            <label class="block text-sm font-medium text-slate-700 mb-2">Freeship (optional)</label>
+            <div class="flex items-center gap-6">
+                <label class="flex items-center gap-2 text-sm text-slate-700">
+                    <input type="radio" name="is_freeship" value="no"
+                           {% if not submitted_is_freeship %}checked{% endif %}
+                           class="border-slate-300 text-slate-800 focus:ring-slate-800">
+                    No
+                </label>
+                <label class="flex items-center gap-2 text-sm text-slate-700">
+                    <input type="radio" name="is_freeship" value="yes"
+                           {% if submitted_is_freeship %}checked{% endif %}
+                           class="border-slate-300 text-slate-800 focus:ring-slate-800">
+                    Yes
+                </label>
+            </div>
+            <p class="text-xs text-slate-400 mt-2">
+                A freeship student's fee is always Rs 0, regardless of which categories they're enrolled in or any discount set above.
+            </p>
+        </div>
+
+        <div>
             <label for="enrollment_year" class="block text-sm font-medium text-slate-700 mb-1">Enrollment year</label>
             <input
                 type="number"

@@ -41,7 +41,15 @@ class EnrollmentStatus(str, Enum):
 
 
 class FeeCycleStatus(str, Enum):
+    """PARTIAL added alongside the due-carry-forward payment feature — a
+    cycle is PARTIAL once some money (but not the full amount_paid ==
+    total_due) has been applied to it. Declared between UNPAID and PAID
+    so the existing "ascending puts unpaid-first" list ordering
+    (app/api/fee_cycles.py) naturally surfaces PARTIAL rows right after
+    fully UNPAID ones, ahead of PAID."""
+
     UNPAID = "unpaid"
+    PARTIAL = "partial"
     PAID = "paid"
 
 

@@ -5,12 +5,15 @@
 <a href="/settings" class="text-sm text-slate-500 hover:text-slate-800 mb-4 inline-block">&larr; Back to Settings</a>
 <h1 class="text-xl font-semibold text-slate-900 mb-1">Academic year rollover</h1>
 <p class="text-sm text-slate-500 mb-6">
-    Promotes every active student one class level. Class 12 students have no further level to promote to and will be deactivated as graduating. Enrollments and fee cycles are not affected.
+    Promotes every active student one class level. School enrollments end automatically for Class 10 students, and Coaching enrollments end automatically for Class 12 students — English and Computer enrollments are never touched here; end those manually if needed. Fee cycles are not affected.
 </p>
 
 {% if done %}
 <div class="text-sm text-green-800 bg-green-50 border border-green-200 rounded-md px-4 py-3 mb-6">
-    Rollover complete — {{ result_promoted }} student{{ 's' if result_promoted != 1 }} promoted, {{ result_graduated }} student{{ 's' if result_graduated != 1 }} deactivated as graduating.
+    Rollover complete — {{ result_promoted }} student{{ 's' if result_promoted != 1 }} promoted,
+    {{ result_at_top }} already at the highest defined class (unchanged),
+    {{ result_school_ending }} School enrollment{{ 's' if result_school_ending != 1 }} ended,
+    {{ result_coaching_ending }} Coaching enrollment{{ 's' if result_coaching_ending != 1 }} ended.
 </div>
 {% endif %}
 
@@ -27,8 +30,8 @@
             {% for row in rows %}
             <tr>
                 <td class="px-4 py-3 text-slate-900">{{ row.from_level.name }}</td>
-                <td class="px-4 py-3 {% if row.to_level %}text-slate-900{% else %}text-amber-700 font-medium{% endif %}">
-                    {{ row.to_level.name if row.to_level else 'Graduating (deactivated)' }}
+                <td class="px-4 py-3 {% if row.to_level %}text-slate-900{% else %}text-slate-500{% endif %}">
+                    {{ row.to_level.name if row.to_level else 'No further class defined' }}
                 </td>
                 <td class="px-4 py-3 text-slate-500">{{ row.count }}</td>
             </tr>
@@ -41,14 +44,20 @@
     </table>
 </div>
 
-<p class="text-sm text-slate-600 mb-6">
-    <strong>{{ total_promoted }}</strong> student{{ 's' if total_promoted != 1 }} will be promoted, and
-    <strong>{{ total_graduating }}</strong> student{{ 's' if total_graduating != 1 }} will be deactivated as graduating
-    ({{ total_active }} active total).
-</p>
+<div class="text-sm text-slate-600 mb-6 space-y-1">
+    <p>
+        <strong>{{ total_promoted }}</strong> student{{ 's' if total_promoted != 1 }} will be promoted one class
+        ({{ total_active }} active total{% if total_at_top %}, {{ total_at_top }} already at the highest defined class{% endif %}).
+    </p>
+    <p>
+        <strong>{{ total_school_ending }}</strong> School enrollment{{ 's' if total_school_ending != 1 }} will end (Class 10 finishing),
+        and <strong>{{ total_coaching_ending }}</strong> Coaching enrollment{{ 's' if total_coaching_ending != 1 }} will end (Class 12 finishing).
+        English and Computer enrollments are not affected — end those manually from the student's profile if needed.
+    </p>
+</div>
 
 {% if not done and rows %}
-<form method="post" action="/rollover/execute" onsubmit="return confirm('This will promote {{ total_promoted }} students and deactivate {{ total_graduating }} graduating students. This cannot be undone automatically. Continue?');">
+<form method="post" action="/rollover/execute" onsubmit="return confirm('This will promote {{ total_promoted }} students, end {{ total_school_ending }} School enrollment(s), and end {{ total_coaching_ending }} Coaching enrollment(s). This cannot be undone automatically. Continue?');">
     <button type="submit" class="text-sm bg-slate-800 text-white rounded-md px-4 py-2 hover:bg-slate-700">
         Confirm &amp; Run Rollover
     </button>

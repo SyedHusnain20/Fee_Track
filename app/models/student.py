@@ -39,6 +39,16 @@ class Student(SQLModel, table=True):
     )
     discount_value: Optional[Decimal] = Field(default=None, max_digits=10, decimal_places=2)
 
+    # Freeship: an all-or-nothing fee waiver, independent of discount_type/
+    # discount_value above and independent of which (or how many)
+    # categories the student is enrolled in. See app.services.fees --
+    # compute_student_fee_breakdown()/compute_fee_breakdowns_bulk() short-
+    # circuit to an empty, all-zero breakdown for a freeship student before
+    # ever looking at their enrollments or the regular discount, so a
+    # freeship student's fee is 0 the same way regardless of what they're
+    # enrolled in or what discount they'd otherwise have.
+    is_freeship: bool = Field(default=False)
+
     class_level: "ClassLevel" = Relationship(back_populates="students")
     enrollments: List["Enrollment"] = Relationship(back_populates="student")
     fee_cycles: List["FeeCycle"] = Relationship(back_populates="student")
