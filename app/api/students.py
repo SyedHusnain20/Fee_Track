@@ -58,7 +58,7 @@ from app.models.fee_cycle import FeeCycle
 from app.models.student import Student
 from app.services.audit import write_audit_log
 from app.services.fee_settings import get_fee_due_day
-from app.services.fee_payments import get_outstanding_summary
+from app.services.fee_payments import get_outstanding_summaries_bulk
 from app.services.holidays import get_holiday_dates_in_range
 from app.services.fees import (
     apply_discount,
@@ -168,12 +168,12 @@ def build_student_detail_context(
     # Same due-carry-forward outstanding summary the fee cycles list page
     # shows -- see app.services.fee_payments. Keyed by cycle id so the
     # template can look up "what would paying THIS row settle" for
-    # whichever cycle the admin clicks Pay on.
-    outstanding_by_cycle = {
-        cycle.id: get_outstanding_summary(session, cycle)
-        for cycle in fee_cycles
-        if cycle.status != FeeCycleStatus.PAID
-    }
+    # whichever cycle the admin clicks Pay on. Bulk version even though
+    # this student's own history is naturally small -- no reason to keep
+    # two call sites doing this two different ways.
+    outstanding_by_cycle = get_outstanding_summaries_bulk(
+        session, [cycle for cycle in fee_cycles if cycle.status != FeeCycleStatus.PAID]
+    )
 
     # Last-6-active-days attendance strip, split into School and Academy
     # rows since a student can be enrolled in both simultaneously and each

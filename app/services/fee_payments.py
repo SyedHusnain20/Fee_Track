@@ -76,6 +76,55 @@ def get_outstanding_summary(session: Session, anchor: FeeCycle) -> dict:
     }
 
 
+def get_outstanding_summaries_bulk(session: Session, cycles: list[FeeCycle]) -> dict[int, dict]:
+    """Bulk version of get_outstanding_summary() above -- one query total
+    instead of one per cycle. Built for /fee-cycles' list page, which
+    (unlike /students) isn't paginated, so with the per-cycle version this
+    page ran one extra query for every UNPAID/PARTIAL cycle in the period
+    -- hundreds of round trips as a school's enrollment grows, on a page
+    every admin opens routinely. Same math as get_outstanding_summary(),
+    just computed from one shared in-memory dataset instead of a fresh
+    query per row.
+
+    Returns {cycle.id: summary_dict}, only for cycles actually passed in.
+    Callers should only pass non-PAID cycles, same as the single-cycle
+    version -- a PAID cycle has no "outstanding" question to answer."""
+    if not cycles:
+        return {}
+
+    student_ids = {c.student_id for c in cycles}
+    all_candidates = session.exec(
+        select(FeeCycle)
+        .where(
+            FeeCycle.student_id.in_(student_ids),
+            FeeCycle.status != FeeCycleStatus.PAID,
+        )
+        .order_by(FeeCycle.period.asc())
+    ).all()
+
+    by_student: dict[int, list[FeeCycle]] = {}
+    for candidate in all_candidates:
+        by_student.setdefault(candidate.student_id, []).append(candidate)
+
+    summaries: dict[int, dict] = {}
+    for cycle in cycles:
+        # Each cycle in `cycles` can be a different period (e.g. this
+        # function is also usable for a single student's whole history,
+        # not just one period's page), so "previous" is evaluated
+        # relative to THIS cycle's own period, not a single shared cutoff.
+        queue = [c for c in by_student.get(cycle.student_id, []) if c.period <= cycle.period]
+        previous = [c for c in queue if c.period < cycle.period]
+        previous_due_amount = sum((c.total_due - c.amount_paid for c in previous), Decimal("0.00"))
+        current_month_due = cycle.total_due - cycle.amount_paid
+        summaries[cycle.id] = {
+            "previous_due_amount": previous_due_amount,
+            "previous_due_months": len(previous),
+            "current_month_due": current_month_due,
+            "total_outstanding": previous_due_amount + current_month_due,
+        }
+    return summaries
+
+
 def record_payment(
     session: Session, cycle_id: int, amount: Decimal, admin_id: int
 ) -> FeePayment:

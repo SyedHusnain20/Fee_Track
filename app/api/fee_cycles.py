@@ -45,7 +45,11 @@ from app.services.audit import write_audit_log
 from app.services.branding import get_logo_data_uri
 from app.services.exam_fee import get_exam_fee_amount
 from app.services.fee_cycle_generation import generate_fee_cycles
-from app.services.fee_payments import PaymentError, get_outstanding_summary, record_payment
+from app.services.fee_payments import (
+    PaymentError,
+    get_outstanding_summaries_bulk,
+    record_payment,
+)
 from app.services.notifications import create_fee_notification
 
 router = APIRouter(prefix="/fee-cycles", tags=["fee-cycles"])
@@ -141,13 +145,12 @@ async def list_fee_cycles(
     # Cumulative "amount due" per row -- this period's own remaining
     # balance plus anything carried forward from earlier unpaid/partial
     # periods for the same student (see app.services.fee_payments). One
-    # extra query per row; acceptable for a page an admin browses a
-    # period at a time rather than something hit in a hot loop.
-    outstanding_by_cycle = {
-        cycle.id: get_outstanding_summary(session, cycle)
-        for cycle in cycles
-        if cycle.status != FeeCycleStatus.PAID
-    }
+    # bulk query total for the whole page, not one per row -- this page
+    # isn't paginated, so it scales with every unpaid/partial student in
+    # the period.
+    outstanding_by_cycle = get_outstanding_summaries_bulk(
+        session, [cycle for cycle in cycles if cycle.status != FeeCycleStatus.PAID]
+    )
 
     return templates.TemplateResponse(
         "fee_cycles/list.html",
