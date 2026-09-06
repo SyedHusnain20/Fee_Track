@@ -1,0 +1,41 @@
+# Production overlay — OPTIONAL hardening, not required to deploy. Use
+# together with the base file, never alone:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+#
+# What this changes and why:
+#
+# 1. Removes the api service's three bind mounts (./app, ./scripts,
+#    ./alembic). docker-compose.yml mounts these on top of the built
+#    image so local edits show up without a rebuild — exactly what you
+#    want in development, and exactly what you don't want in production:
+#    it means the container is running whatever happens to be sitting on
+#    the droplet's disk at that moment rather than the image you actually
+#    built and tested. In a normal git-pull-then-rebuild deploy workflow
+#    the mounted files and the image's copy are identical anyway, so
+#    skipping this file entirely and just using docker-compose.yml as-is
+#    is a perfectly reasonable choice for a single-droplet deployment —
+#    this only matters once the checkout and the last-built image can
+#    drift apart (an interrupted `git pull`, a stray edit made directly
+#    on the server, etc).
+#
+#    `!reset []`, not `volumes: []` — Compose merges list-type fields by
+#    appending/matching-by-target, so an empty list in an override
+#    contributes nothing and leaves the base file's three mounts
+#    untouched (verified directly: `volumes: []` here silently does NOT
+#    remove them). `!reset` is the explicit "actually clear this key"
+#    merge directive Compose added for exactly this situation. Requires
+#    Compose v2.24.0+ (Feb 2024) — check with `docker compose version`.
+#
+# 2. Uvicorn intentionally stays single-process here (no --workers flag,
+#    no `deploy.replicas` on the api service). Both login_throttle.py and
+#    signup_throttle.py keep their rate-limit counters in an in-process
+#    Python dict, by design, for this single-VPS deployment (see those
+#    files' own docstrings) — running multiple worker processes or
+#    replicas would split that state across them, silently multiplying
+#    the effective attempt limit (5 attempts x N workers before anyone
+#    locks out) instead of enforcing it. Don't add concurrency here
+#    without first moving that state to something shared (e.g. Redis).
+services:
+  api:
+    volumes: !reset []

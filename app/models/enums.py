@@ -2,10 +2,27 @@ from enum import Enum
 
 
 class FeeCategory(str, Enum):
+    """Displayed to admins as School, Coaching, Language, Computer
+    Courses, and Others (see CATEGORY_LABELS in app/api/students.py and
+    app/api/category_fees.py) — ENGLISH's internal value is kept as
+    "english" for DB compatibility with existing rows even though its
+    display label is just "Language" now; same story for COMPUTER's
+    internal value vs. its "Computer Courses" label.
+
+    OTHERS added alongside School/Coaching/Language/Computer: a catch-all
+    category for anything that doesn't fit the other four. Like Language
+    and Computer, it's NOT auto-managed by rollover (see
+    ROLLOVER_MANAGED_CATEGORIES in app/api/rollover.py) — its
+    CategoryFeeDefault band is a flat "All classes" rate rather than a
+    per-class-level one, same reasoning as Language/Computer: admins
+    manage who's in it and for how long manually.
+    """
+
     SCHOOL = "school"
     COACHING = "coaching"
     ENGLISH = "english"
     COMPUTER = "computer"
+    OTHERS = "others"
 
 
 class AttendanceSession(str, Enum):

@@ -23,7 +23,7 @@ from app.core.database import get_session
 from app.models.admin_user import AdminUser
 from app.models.attendance_record import AttendanceRecord
 from app.models.enums import AuditAction
-from app.services.attendance_archive import build_workbook, get_archive_summary
+from app.services.attendance_archive import build_workbook, get_archive_summary, get_max_attendance_id
 from app.services.audit import write_audit_log
 from app.services.b2_upload import B2UploadError, upload_archive_to_b2
 
@@ -37,7 +37,8 @@ async def archive_preview(
     session: Session = Depends(get_session),
     admin: AdminUser = Depends(get_current_admin),
 ):
-    summary = get_archive_summary(session)
+    max_id = get_max_attendance_id(session)
+    summary = get_archive_summary(session, max_id)
     return templates.TemplateResponse(
         "archive/preview.html",
         {"request": request, "admin": admin, **summary, "done": False, "error": None},
@@ -50,7 +51,16 @@ async def archive_execute(
     session: Session = Depends(get_session),
     admin: AdminUser = Depends(get_current_admin),
 ):
-    summary = get_archive_summary(session)
+    # Captured once, right at the start, before anything else touches
+    # AttendanceRecord -- the SAME cutoff is used for the summary check
+    # below, the exported workbook, and the final DELETE, so a scan that
+    # arrives mid-process (kiosk is unauthenticated and always available;
+    # the B2 upload below is a real network round trip) is excluded from
+    # all three consistently rather than falling through the cracks
+    # between them. See app.services.attendance_archive's module
+    # docstring for the failure mode this prevents.
+    max_id = get_max_attendance_id(session)
+    summary = get_archive_summary(session, max_id)
 
     if summary["total"] == 0:
         return templates.TemplateResponse(
@@ -64,7 +74,7 @@ async def archive_execute(
             },
         )
 
-    workbook = build_workbook(session)
+    workbook = build_workbook(session, max_id)
     timestamp = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
     remote_filename = (
         f"attendance-archives/{summary['start_date']}_to_{summary['end_date']}_{timestamp}.xlsx"
@@ -114,7 +124,14 @@ async def archive_execute(
     # (AdminSession/Notification cleanup) where the row counts involved
     # are naturally small. One statement, handled entirely by Postgres,
     # regardless of how many rows it's clearing.
-    session.exec(delete(AttendanceRecord))
+    #
+    # WHERE id <= max_id, not an unconditional DELETE FROM: a scan that
+    # landed after this run's cutoff (see max_id above) was never counted,
+    # never exported, and must NOT be deleted either — it survives for the
+    # next archive run instead. An earlier version of this deleted
+    # everything unconditionally here, which could silently discard a scan
+    # that arrived during the B2 upload's network round trip.
+    session.exec(delete(AttendanceRecord).where(AttendanceRecord.id <= max_id))
     session.commit()
 
     return templates.TemplateResponse(

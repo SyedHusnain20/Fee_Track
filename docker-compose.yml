@@ -6,6 +6,20 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-raabta}
       POSTGRES_USER: ${POSTGRES_USER:-raabta}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    # Explicit, conservative flags rather than trusting Postgres's
+    # defaults to fit under the memory limit below -- the stock image
+    # defaults to shared_buffers=128MB and max_connections=100, sized for
+    # a real server, not a $6/mo 1GB droplet also running two other
+    # containers. This app never needs more than a handful of concurrent
+    # connections (a few admins, the kiosk), so 20 is generous, not tight.
+    command:
+      - postgres
+      - -c
+      - shared_buffers=64MB
+      - -c
+      - max_connections=20
+      - -c
+      - work_mem=4MB
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -16,7 +30,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512M
+          memory: 256M
 
   api:
     build: .
@@ -25,12 +39,6 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    # --workers left at 1 (default, no --workers flag) here since local
-    # Postgres round trips are sub-millisecond -- the blocking-event-loop
-    # problem multiple workers were added to work around only bites once
-    # queries have real network latency, i.e. Neon, not this. Fine to add
-    # --workers back later regardless (still safe/harmless locally), but
-    # not needed for local dev.
     expose:
       - "8000"
     environment:
@@ -39,10 +47,26 @@ services:
       - ./app:/app/app  # remove in production images; convenient for now
       - ./scripts:/app/scripts  # same — live edits without rebuilding
       - ./alembic:/app/alembic  # same — new migration files show up without rebuilding
+    healthcheck:
+      # /health's own docstring says it's for this — wasn't actually wired
+      # up before. curl is already in the image (Dockerfile installs it
+      # for the postgres-client dependency chain), so no extra install.
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     deploy:
       resources:
         limits:
-          memory: 1024M
+          # 400M, not the 1024M this originally shipped with -- that
+          # figure assumed a 2GB droplet. Single uvicorn process (see
+          # docker-compose.prod.yml's note on why it MUST stay single-
+          # process regardless of droplet size) sits well under 100MB at
+          # idle; this leaves real headroom for WeasyPrint's Pango/Cairo
+          # rendering stack during a PDF invoice export, the one thing in
+          # this app that briefly spikes memory.
+          memory: 400M
 
   nginx:
     image: nginx:alpine
@@ -52,11 +76,12 @@ services:
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:
-      - api
+      api:
+        condition: service_healthy
     deploy:
       resources:
         limits:
-          memory: 128M
+          memory: 32M
 
 volumes:
   pgdata:

@@ -13,6 +13,11 @@ rest are left untouched (see update_category_fees below).
 Restricted to require_super_admin — only reachable via /settings, and
 only visible in the navbar to super admins, per explicit access-control
 decision (same treatment as /settings and /rollover).
+
+Per Key Design Principle #7, every changed band amount writes through the
+audit-log hook (an earlier gap here — every other financial-setting
+change in this app, e.g. category_fees's sibling settings.py, already
+logged).
 """
 
 from decimal import Decimal, InvalidOperation
@@ -26,7 +31,8 @@ from app.api.deps import require_super_admin
 from app.core.database import get_session
 from app.models.admin_user import AdminUser
 from app.models.category_fee_default import CategoryFeeDefault
-from app.models.enums import FeeCategory
+from app.models.enums import AuditAction, FeeCategory
+from app.services.audit import write_audit_log
 
 router = APIRouter(prefix="/category-fees", tags=["category-fees"])
 templates = Jinja2Templates(directory="app/templates")
@@ -34,8 +40,9 @@ templates = Jinja2Templates(directory="app/templates")
 CATEGORY_LABELS = {
     FeeCategory.SCHOOL: "School",
     FeeCategory.COACHING: "Coaching",
-    FeeCategory.ENGLISH: "English Language",
+    FeeCategory.ENGLISH: "Language",
     FeeCategory.COMPUTER: "Computer Courses",
+    FeeCategory.OTHERS: "Others",
 }
 
 
@@ -122,8 +129,18 @@ async def update_category_fees(
     for row in rows:
         new_amount = parsed.get(row.id)
         if new_amount is not None and new_amount != row.default_amount:
+            before = {"default_amount": float(row.default_amount)}
             row.default_amount = new_amount
             session.add(row)
+            write_audit_log(
+                session,
+                admin_id=admin.id,
+                action=AuditAction.UPDATE,
+                entity_type="CategoryFeeDefault",
+                entity_id=row.id,
+                before_value=before,
+                after_value={"default_amount": float(row.default_amount)},
+            )
 
     session.commit()
     return RedirectResponse(url="/category-fees", status_code=status.HTTP_303_SEE_OTHER)

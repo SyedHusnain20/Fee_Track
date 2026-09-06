@@ -1,8 +1,9 @@
-"""One-off seed script for fixed reference data: the 15 ClassLevel rows, 11
+"""One-off seed script for fixed reference data: the 15 ClassLevel rows, 12
 CategoryFeeDefault band rows, and attendance timing settings — updated for
-the School/Academy kiosk redesign. Billing (FeeCategory, 4 values) is
-untouched by this redesign; only the kiosk-side AttendanceSession timing
-keys changed.
+the School/Academy kiosk redesign, and again when FeeCategory grew a 5th
+value (OTHERS). Billing categories are School/Coaching/Language/Computer
+Courses/Others now; only the kiosk-side AttendanceSession timing keys
+changed in the redesign mentioned above.
 
 Neither Step 5 nor Step 6 populated ClassLevel/CategoryFeeDefault — Student
 creation (Step 7) hard-depends on ClassLevel existing via a foreign key, and
@@ -63,6 +64,7 @@ CATEGORY_FEE_BANDS = [
     (FeeCategory.COACHING, "Class 11-12", 13, 14),
     (FeeCategory.ENGLISH, "All classes", 0, 14),
     (FeeCategory.COMPUTER, "All classes", 0, 14),
+    (FeeCategory.OTHERS, "All classes", 0, 14),
 ]
 
 # PLACEHOLDER schedule — staggered guesses so the kiosk is functional out of

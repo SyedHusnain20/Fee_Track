@@ -56,8 +56,7 @@
         <tbody class="divide-y divide-slate-100">
             {% for row in rows %}
             {% set student = row.student %}
-            <tr class="cursor-pointer hover:bg-slate-100 {% if not student.is_active %}opacity-50{% elif row.is_overdue %}bg-red-50{% endif %}"
-                onclick="if (!event.target.closest('a, button, form')) { window.location.href = '/students/{{ student.id }}'; }">
+            <tr class="{% if not student.is_active %}opacity-50{% elif row.is_overdue %}bg-red-50{% endif %}">
                 <td class="px-4 py-3 align-top font-mono text-slate-700">{{ student.roll_number }}</td>
                 <td class="px-4 py-3 align-top text-slate-900">{{ student.name }}</td>
                 <td class="px-4 py-3 align-top text-slate-500">{{ student.father_name }}</td>
@@ -79,11 +78,16 @@
                 <td class="px-4 py-3 align-top">
                     {% if row.fee_status == "Paid" %}
                     <span class="text-xs font-medium text-green-700 bg-green-50 px-2 py-1 rounded">Paid</span>
+                    {% elif row.fee_status == "Partial" %}
+                    <span class="text-xs font-medium text-blue-700 bg-blue-50 px-2 py-1 rounded">Partial</span>
+                    {% elif row.fee_status == "Freeship" %}
+                    <span class="text-xs font-medium text-slate-600 bg-slate-100 px-2 py-1 rounded">Freeship</span>
                     {% else %}
                     <span class="text-xs font-medium text-red-700 bg-red-50 px-2 py-1 rounded">Unpaid</span>
                     {% endif %}
                 </td>
                 <td class="px-4 py-3 align-top text-right space-x-3">
+                    <a href="/students/{{ student.id }}" class="text-slate-600 hover:text-slate-900">View</a>
                     <a href="/students/{{ student.id }}/edit" class="text-slate-600 hover:text-slate-900">Edit</a>
                     {% if student.is_active %}
                     <form method="post" action="/students/{{ student.id }}/deactivate" class="inline" onsubmit="return confirm('Deactivate {{ student.name }}?');">

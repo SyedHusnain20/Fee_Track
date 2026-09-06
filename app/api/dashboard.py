@@ -65,7 +65,9 @@ async def dashboard(
     ).one()
 
     academy_enrolled_ids = select(Enrollment.student_id).where(
-        Enrollment.category.in_([FeeCategory.COACHING, FeeCategory.ENGLISH, FeeCategory.COMPUTER]),
+        Enrollment.category.in_(
+            [FeeCategory.COACHING, FeeCategory.ENGLISH, FeeCategory.COMPUTER, FeeCategory.OTHERS]
+        ),
         Enrollment.status == EnrollmentStatus.ACTIVE,
     )
     active_academy_students = session.exec(

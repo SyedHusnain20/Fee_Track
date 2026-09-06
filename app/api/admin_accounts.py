@@ -14,6 +14,11 @@ rather than returning JSON for a future JS frontend.
 Phase 5 adds an audit-log entry to both approve_admin and reject_admin,
 recording the acting super admin — the counterpart to auth.signup_submit's
 own audit-log write for the initial request.
+
+Also logs create_admin/deactivate_admin now (an earlier gap — every other
+AdminUser mutation in this file was already audited) and enforces the
+same 8-character minimum password length /signup does, so creating an
+account directly isn't a way to bypass that policy.
 """
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, status
@@ -58,12 +63,21 @@ async def create_admin(
     password: str = Form(...),
     is_super_admin: bool = Form(False),
     session: Session = Depends(get_session),
-    _: AdminUser = Depends(require_super_admin),
+    current: AdminUser = Depends(require_super_admin),
 ):
     email = email.strip().lower()
     existing = session.exec(select(AdminUser).where(AdminUser.email == email)).first()
     if existing:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already in use.")
+
+    # Same minimum enforced on /signup (app/api/auth.py) -- a super admin
+    # creating an account directly shouldn't be a way to bypass the
+    # password policy self-service signup enforces.
+    if len(password) < 8:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password must be at least 8 characters.",
+        )
 
     admin = AdminUser(
         name=name,
@@ -73,6 +87,23 @@ async def create_admin(
         is_super_admin=is_super_admin,
     )
     session.add(admin)
+    # Flush (not just commit) so admin.id exists for the audit-log write
+    # below — same pattern as app.api.enrollments's create route.
+    session.flush()
+
+    write_audit_log(
+        session,
+        admin_id=current.id,
+        action=AuditAction.CREATE,
+        entity_type="AdminUser",
+        entity_id=admin.id,
+        before_value=None,
+        after_value={
+            "name": admin.name,
+            "email": admin.email,
+            "is_super_admin": admin.is_super_admin,
+        },
+    )
     session.commit()
     session.refresh(admin)
     return {"id": admin.id, "email": admin.email, "is_super_admin": admin.is_super_admin}
@@ -94,6 +125,7 @@ async def deactivate_admin(
     if not target:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Admin not found.")
 
+    before_active = target.is_active
     target.is_active = False
     session.add(target)
 
@@ -105,6 +137,15 @@ async def deactivate_admin(
     for s in live_sessions:
         session.delete(s)
 
+    write_audit_log(
+        session,
+        admin_id=current.id,
+        action=AuditAction.UPDATE,
+        entity_type="AdminUser",
+        entity_id=target.id,
+        before_value={"is_active": before_active},
+        after_value={"is_active": target.is_active},
+    )
     session.commit()
     return {"id": target.id, "is_active": target.is_active}
 

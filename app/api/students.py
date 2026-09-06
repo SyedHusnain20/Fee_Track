@@ -25,7 +25,7 @@ migration) is validated BEFORE the student row is created — an ineligible
 selection creates nothing at all, rather than leaving a half-created
 student with only some of the requested enrollments.
 """
-from datetime import datetime, timedelta
+from datetime import timedelta
 from decimal import Decimal, InvalidOperation
 from typing import List, Optional
 import json
@@ -57,6 +57,7 @@ from app.models.enums import (
 from app.models.fee_cycle import FeeCycle
 from app.models.student import Student
 from app.services.audit import write_audit_log
+from app.services.backdated_dues import create_backdated_fee_cycles
 from app.services.fee_settings import get_fee_due_day
 from app.services.fee_payments import get_outstanding_summaries_bulk
 from app.services.holidays import get_holiday_dates_in_range
@@ -75,8 +76,9 @@ templates = Jinja2Templates(directory="app/templates")
 CATEGORY_LABELS = {
     FeeCategory.SCHOOL: "School",
     FeeCategory.COACHING: "Coaching",
-    FeeCategory.ENGLISH: "English Language",
+    FeeCategory.ENGLISH: "Language",
     FeeCategory.COMPUTER: "Computer Courses",
+    FeeCategory.OTHERS: "Others",
 }
 # Compact per-student category code shown on /students -- e.g. a student
 # enrolled in Coaching + Computer shows "AC". Always rendered in this
@@ -88,6 +90,7 @@ CATEGORY_CODE = {
     FeeCategory.COACHING: "A",
     FeeCategory.ENGLISH: "L",
     FeeCategory.COMPUTER: "C",
+    FeeCategory.OTHERS: "O",
 }
 DISCOUNT_TYPE_LABELS = {
     DiscountType.NONE: "None",
@@ -106,6 +109,7 @@ CUSTOM_FEE_FIELD_NAMES = {
     FeeCategory.COACHING: "custom_fee_coaching",
     FeeCategory.ENGLISH: "custom_fee_english",
     FeeCategory.COMPUTER: "custom_fee_computer",
+    FeeCategory.OTHERS: "custom_fee_others",
 }
 
 
@@ -428,10 +432,21 @@ async def list_students(
     for student in students:
         class_offset = student.class_level.class_offset
         student_enrollments = enrollments_by_student.get(student.id, [])
-        subtotal = Decimal("0.00")
-        for e in student_enrollments:
-            subtotal += e.custom_fee if e.custom_fee is not None else _band_fee(e.category, class_offset)
-        total_fee = apply_discount(subtotal, student.discount_type, student.discount_value)
+        if student.is_freeship:
+            # Matches app.services.fees's short-circuit exactly -- a
+            # freeship student's fee is 0 regardless of enrollments or
+            # discount. This list computes total_fee independently from
+            # that module (for bulk-band-lookup performance reasons, see
+            # the comment above), so the freeship check has to be
+            # repeated here too, or a freeship student would wrongly show
+            # their full band fee and get flagged overdue once the due
+            # day passes, despite never actually owing anything.
+            total_fee = Decimal("0.00")
+        else:
+            subtotal = Decimal("0.00")
+            for e in student_enrollments:
+                subtotal += e.custom_fee if e.custom_fee is not None else _band_fee(e.category, class_offset)
+            total_fee = apply_discount(subtotal, student.discount_type, student.discount_value)
 
         categories_present = {
             e.category for e in student_enrollments
@@ -462,8 +477,14 @@ async def list_students(
         # decision: a student with no active enrollments never gets a
         # FeeCycle generated at all (fee_cycle_generation.py skips
         # zero-due students outright), so they show "Unpaid" permanently
-        # rather than "N/A" — intentional, not a bug.
-        fee_status = cycle.status.value.capitalize() if cycle is not None else "Unpaid"
+        # rather than "N/A" — intentional, not a bug. A freeship student
+        # is the one exception carved out from that: showing "Unpaid"
+        # for someone who structurally never owes anything reads as a
+        # false debt, so this shows "Freeship" instead.
+        if student.is_freeship:
+            fee_status = "Freeship"
+        else:
+            fee_status = cycle.status.value.capitalize() if cycle is not None else "Unpaid"
         rows.append({
             "student": student,
             "total_fee": total_fee,
@@ -505,7 +526,7 @@ async def new_student_form(
             "admin": admin,
             "student": None,
             "class_levels": class_levels,
-            "current_year": datetime.utcnow().year,
+            "current_year": school_today().year,
             "category_labels": CATEGORY_LABELS,
             "discount_type_labels": DISCOUNT_TYPE_LABELS,
             "discount_types": list(DiscountType),
@@ -513,6 +534,8 @@ async def new_student_form(
             "submitted_discount_type": DiscountType.NONE,
             "submitted_discount_value": "",
             "submitted_is_freeship": False,
+            "submitted_previous_due": "",
+            "submitted_previous_due_months": "",
             "custom_fee_field_names": CUSTOM_FEE_FIELD_NAMES,
             "submitted_custom_fees": {},
             "custom_fee_errors": {},
@@ -529,15 +552,17 @@ async def create_student(
     father_name: str = Form(...),
     parent_whatsapp: str = Form(...),
     class_level_id: int = Form(...),
-    enrollment_year: int = Form(...),
     categories: Annotated[List[FeeCategory], Form()] = [],
     custom_fee_school: str = Form(""),
     custom_fee_coaching: str = Form(""),
     custom_fee_english: str = Form(""),
     custom_fee_computer: str = Form(""),
+    custom_fee_others: str = Form(""),
     discount_type: DiscountType = Form(DiscountType.NONE),
     discount_value: str = Form(""),
     is_freeship: str = Form("no"),
+    previous_due: str = Form(""),
+    previous_due_months: str = Form(""),
     session: Session = Depends(get_session),
     admin: AdminUser = Depends(get_current_admin),
 ):
@@ -548,6 +573,7 @@ async def create_student(
         FeeCategory.COACHING: custom_fee_coaching,
         FeeCategory.ENGLISH: custom_fee_english,
         FeeCategory.COMPUTER: custom_fee_computer,
+        FeeCategory.OTHERS: custom_fee_others,
     }
 
     def _redisplay(
@@ -562,7 +588,7 @@ async def create_student(
                 "admin": admin,
                 "student": None,
                 "class_levels": class_levels,
-                "current_year": datetime.utcnow().year,
+                "current_year": school_today().year,
                 "category_labels": CATEGORY_LABELS,
                 "discount_type_labels": DISCOUNT_TYPE_LABELS,
                 "discount_types": list(DiscountType),
@@ -570,6 +596,8 @@ async def create_student(
                 "submitted_discount_type": discount_type,
                 "submitted_discount_value": discount_value,
                 "submitted_is_freeship": freeship,
+                "submitted_previous_due": previous_due,
+                "submitted_previous_due_months": previous_due_months,
                 "custom_fee_field_names": CUSTOM_FEE_FIELD_NAMES,
                 "submitted_custom_fees": custom_fee_inputs,
                 "custom_fee_errors": custom_fee_errors or {},
@@ -580,8 +608,16 @@ async def create_student(
         )
 
     try:
+        # enrollment_year is no longer a client-supplied field (see
+        # students/form.html) -- always today's actual year, computed
+        # fresh right here rather than trusting anything the browser
+        # rendered earlier in the request. This also sidesteps the one
+        # edge case a purely template-rendered fixed value would have
+        # missed: a form left open across the Dec 31 -> Jan 1 rollover
+        # would otherwise submit whatever year the page happened to load
+        # with, not the year the student is actually being added in.
         roll_number = generate_roll_number(
-            session, class_level_id=class_level_id, enrollment_year=enrollment_year
+            session, class_level_id=class_level_id, enrollment_year=school_today().year
         )
     except ValueError as exc:
         return _redisplay(str(exc))
@@ -592,6 +628,37 @@ async def create_student(
         parsed_discount_value = parse_discount_input(discount_type, discount_value)
     except ValueError as exc:
         return _redisplay(str(exc))
+
+    # Backdated due: both fields optional, but must be given together --
+    # a due amount with no month count (or vice versa) has no sensible
+    # meaning. Blank/zero on both is the ordinary case (a fresh admission
+    # with no prior debt) and skips this entirely; see
+    # app.services.backdated_dues for what happens when they are given.
+    previous_due_raw = previous_due.strip()
+    previous_due_months_raw = previous_due_months.strip()
+    parsed_previous_due: Optional[Decimal] = None
+    parsed_previous_due_months: Optional[int] = None
+
+    if previous_due_raw or previous_due_months_raw:
+        if not previous_due_raw or not previous_due_months_raw:
+            return _redisplay("Enter both the previous due amount and the number of months (or leave both blank).")
+        try:
+            parsed_previous_due = Decimal(previous_due_raw)
+        except InvalidOperation:
+            return _redisplay("Previous due must be a valid amount.")
+        if parsed_previous_due < 0:
+            return _redisplay("Previous due can't be negative.")
+        try:
+            parsed_previous_due_months = int(previous_due_months_raw)
+        except ValueError:
+            return _redisplay("Number of months must be a whole number.")
+        if parsed_previous_due_months <= 0:
+            return _redisplay("Number of months must be at least 1.")
+        if parsed_previous_due == 0:
+            # Nothing to actually seed -- treat same as leaving both blank
+            # rather than creating N zero-due cycles for no reason.
+            parsed_previous_due = None
+            parsed_previous_due_months = None
 
     # Validate every selected category is eligible for this class level
     # BEFORE creating anything — an ineligible selection must not leave a
@@ -683,6 +750,16 @@ async def create_student(
                 },
             )
 
+    if parsed_previous_due is not None and parsed_previous_due_months is not None:
+        create_backdated_fee_cycles(
+            session,
+            student,
+            total_due=parsed_previous_due,
+            num_months=parsed_previous_due_months,
+            admin_id=admin.id,
+            as_of=school_today(),
+        )
+
     session.commit()
     return RedirectResponse(url="/students", status_code=status.HTTP_303_SEE_OTHER)
 
@@ -724,7 +801,7 @@ async def edit_student_form(
             "admin": admin,
             "student": student,
             "class_levels": class_levels,
-            "current_year": datetime.utcnow().year,
+            "current_year": school_today().year,
             "category_labels": CATEGORY_LABELS,
             "discount_type_labels": DISCOUNT_TYPE_LABELS,
             "discount_types": list(DiscountType),
@@ -766,7 +843,7 @@ async def update_student(
                 "admin": admin,
                 "student": student,
                 "class_levels": class_levels,
-                "current_year": datetime.utcnow().year,
+                "current_year": school_today().year,
                 "category_labels": CATEGORY_LABELS,
                 "discount_type_labels": DISCOUNT_TYPE_LABELS,
                 "discount_types": list(DiscountType),
