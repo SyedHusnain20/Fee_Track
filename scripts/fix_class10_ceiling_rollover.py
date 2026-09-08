@@ -96,7 +96,10 @@ def main() -> None:
             )
 
         session.commit()
-        print(f"Fixed {len(students)} student(s): moved back to {SCHOOL_CEILING_NAME} and deactivated.")
+        print(
+            f"Fixed {len(students)} student(s): moved back to "
+            f"{SCHOOL_CEILING_NAME} and deactivated."
+        )
 
 
 if __name__ == "__main__":

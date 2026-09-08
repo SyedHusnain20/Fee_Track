@@ -177,14 +177,14 @@ async def dashboard(
     # landing entirely in one bucket — see app.api.settings._financial_totals
     # for the same fix applied to the settings page's totals.
     fee_collected = sum(
-        (c.amount_paid for c in cycles_this_period), Decimal("0.00"),
+        (c.amount_paid for c in cycles_this_period),
+        Decimal("0.00"),
     )
     fee_outstanding = sum(
-        (c.total_due - c.amount_paid for c in cycles_this_period), Decimal("0.00"),
+        (c.total_due - c.amount_paid for c in cycles_this_period),
+        Decimal("0.00"),
     )
-    unpaid_count = sum(
-        1 for c in cycles_this_period if c.status != FeeCycleStatus.PAID
-    )
+    unpaid_count = sum(1 for c in cycles_this_period if c.status != FeeCycleStatus.PAID)
     overdue_count = unpaid_count if is_past_due_day else 0
 
     return templates.TemplateResponse(

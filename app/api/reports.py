@@ -150,18 +150,22 @@ async def fee_report(
             for period in periods:
                 cycle = cycle_by_period.get(period)
                 if cycle is None:
-                    month_rows.append({
-                        "period_label": _period_label(period),
-                        "status": "No cycle",
-                        "paid_date": None,
-                    })
+                    month_rows.append(
+                        {
+                            "period_label": _period_label(period),
+                            "status": "No cycle",
+                            "paid_date": None,
+                        }
+                    )
                 else:
-                    month_rows.append({
-                        "period_label": _period_label(period),
-                        "status": cycle.status.value.capitalize(),
-                        "paid_date": cycle.paid_date,
-                        "total_due": cycle.total_due,
-                    })
+                    month_rows.append(
+                        {
+                            "period_label": _period_label(period),
+                            "status": cycle.status.value.capitalize(),
+                            "paid_date": cycle.paid_date,
+                            "total_due": cycle.total_due,
+                        }
+                    )
 
             reports.append({"student": student, "month_rows": month_rows})
 
@@ -235,11 +239,13 @@ async def attendance_report(
                     # than counted as present/late/absent.
                     status_label = "Holiday"
                     holiday_count += 1
-                    day_rows.append({
-                        "day": day,
-                        "weekday": day.strftime("%a"),
-                        "status": status_label,
-                    })
+                    day_rows.append(
+                        {
+                            "day": day,
+                            "weekday": day.strftime("%a"),
+                            "status": status_label,
+                        }
+                    )
                     continue
                 school_record = school_by_day.get(day)
                 if school_record is not None:
@@ -255,24 +261,28 @@ async def attendance_report(
                 else:
                     status_label = "Absent"
                     absent_count += 1
-                day_rows.append({
-                    "day": day,
-                    "weekday": day.strftime("%a"),
-                    "status": status_label,
-                })
+                day_rows.append(
+                    {
+                        "day": day,
+                        "weekday": day.strftime("%a"),
+                        "status": status_label,
+                    }
+                )
 
             total = len(academic_days) - holiday_count
             percentage = round((present_count + late_count) / total * 100, 1) if total else 0.0
 
-            reports.append({
-                "student": student,
-                "day_rows": day_rows,
-                "weeks": _group_into_weeks(list(reversed(day_rows))),
-                "present_count": present_count,
-                "late_count": late_count,
-                "absent_count": absent_count,
-                "percentage": percentage,
-            })
+            reports.append(
+                {
+                    "student": student,
+                    "day_rows": day_rows,
+                    "weeks": _group_into_weeks(list(reversed(day_rows))),
+                    "present_count": present_count,
+                    "late_count": late_count,
+                    "absent_count": absent_count,
+                    "percentage": percentage,
+                }
+            )
 
     return templates.TemplateResponse(
         "reports/attendance.html",

@@ -76,9 +76,7 @@ class AttendanceRecord(SQLModel, table=True):
     # name is actually needed rather than eager-loading a relationship for
     # every AttendanceRecord query.
     is_manual: bool = Field(default=False)
-    marked_by_id: Optional[int] = Field(
-        default=None, foreign_key="admin_user.id", index=True
-    )
+    marked_by_id: Optional[int] = Field(default=None, foreign_key="admin_user.id", index=True)
 
     student: Optional["Student"] = Relationship(back_populates="attendance_records")
     teacher: Optional["Teacher"] = Relationship(back_populates="attendance_records")

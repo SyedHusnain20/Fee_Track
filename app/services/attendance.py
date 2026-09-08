@@ -157,8 +157,7 @@ def _finalize_attendance(
                 ok=False,
                 kind="unconfigured",
                 message=(
-                    "No start time configured for School yet — "
-                    "set it on the Settings page first."
+                    "No start time configured for School yet — set it on the Settings page first."
                 ),
                 person_type=person_type,
             )
@@ -194,11 +193,15 @@ def _finalize_attendance(
     except IntegrityError:
         session.rollback()
         winner = session.exec(existing_query).first()
-        arrival = winner.arrival_time.strftime("%H:%M") if winner else arrival_time.strftime("%H:%M")
+        arrival = (
+            winner.arrival_time.strftime("%H:%M") if winner else arrival_time.strftime("%H:%M")
+        )
         return ScanResult(
             ok=False,
             kind="duplicate",
-            message=f"{person.name} already scanned for {attendance_session.value} today at {arrival}.",
+            message=(
+                f"{person.name} already scanned for {attendance_session.value} today at {arrival}."
+            ),
             person_type=person_type,
         )
 

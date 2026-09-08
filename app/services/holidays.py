@@ -18,9 +18,7 @@ RECENT_HOLIDAYS_LIMIT = 10
 
 
 def list_recent_holidays(session: Session, limit: int = RECENT_HOLIDAYS_LIMIT) -> list[Holiday]:
-    return session.exec(
-        select(Holiday).order_by(Holiday.holiday_date.desc()).limit(limit)
-    ).all()
+    return session.exec(select(Holiday).order_by(Holiday.holiday_date.desc()).limit(limit)).all()
 
 
 def get_holiday_dates_in_range(session: Session, start: date, end: date) -> set[date]:
@@ -47,9 +45,7 @@ def mark_holiday(
     up front rather than relying on the DB's unique constraint, so the
     route can show a clean validation message instead of a raw
     IntegrityError."""
-    existing = session.exec(
-        select(Holiday).where(Holiday.holiday_date == holiday_date)
-    ).first()
+    existing = session.exec(select(Holiday).where(Holiday.holiday_date == holiday_date)).first()
     if existing:
         raise ValueError(f"{holiday_date.isoformat()} is already marked as a holiday.")
 

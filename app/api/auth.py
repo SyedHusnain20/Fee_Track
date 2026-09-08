@@ -202,9 +202,7 @@ async def signup_submit(
         return _rerender("Passwords do not match.", status.HTTP_400_BAD_REQUEST)
 
     if len(password) < 8:
-        return _rerender(
-            "Password must be at least 8 characters.", status.HTTP_400_BAD_REQUEST
-        )
+        return _rerender("Password must be at least 8 characters.", status.HTTP_400_BAD_REQUEST)
 
     # Also the duplicate-signup guard: one email can have at most one
     # AdminUser row at a time (unique index on AdminUser.email), so this
@@ -219,9 +217,7 @@ async def signup_submit(
         # anything an attacker couldn't already infer by trying to sign up
         # with it themselves, and it saves a genuine admin from wondering
         # why their request never shows up.
-        return _rerender(
-            "An account with this email already exists.", status.HTTP_409_CONFLICT
-        )
+        return _rerender("An account with this email already exists.", status.HTTP_409_CONFLICT)
 
     admin = AdminUser(
         name=name,

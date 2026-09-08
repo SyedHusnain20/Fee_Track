@@ -204,9 +204,7 @@ def compute_teacher_monthly_salary(
         result["net_salary"] = result["combined"]["net_salary"]
         return result
 
-    salary_share = (
-        teacher.salary / 2 if (both and teacher.salary is not None) else teacher.salary
-    )
+    salary_share = teacher.salary / 2 if (both and teacher.salary is not None) else teacher.salary
 
     if enrolled_school:
         result["school"] = _session_attendance_breakdown(

@@ -84,7 +84,9 @@ def generate_fee_cycles(session: Session, period: str, admin_id: int) -> dict:
 
         breakdown = breakdowns[student.id]
         is_school_student = FeeCategory.SCHOOL in breakdown["category_amounts"]
-        exam_fee = exam_fee_amount if (is_school_student and exam_fee_amount > 0) else Decimal("0.00")
+        exam_fee = (
+            exam_fee_amount if (is_school_student and exam_fee_amount > 0) else Decimal("0.00")
+        )
 
         subtotal = breakdown["subtotal"] + exam_fee
         total_due = breakdown["final_total"] + exam_fee

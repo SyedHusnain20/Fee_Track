@@ -246,4 +246,4 @@ async def reject_admin(
     session.delete(target)
     session.commit()
 
-    return RedirectResponse(url="/admin/accounts/requests", status_code=status.HTTP_303_SEE_OTHER)  
+    return RedirectResponse(url="/admin/accounts/requests", status_code=status.HTTP_303_SEE_OTHER)

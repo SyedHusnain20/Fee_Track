@@ -23,7 +23,11 @@ from app.core.database import get_session
 from app.models.admin_user import AdminUser
 from app.models.attendance_record import AttendanceRecord
 from app.models.enums import AuditAction
-from app.services.attendance_archive import build_workbook, get_archive_summary, get_max_attendance_id
+from app.services.attendance_archive import (
+    build_workbook,
+    get_archive_summary,
+    get_max_attendance_id,
+)
 from app.services.audit import write_audit_log
 from app.services.b2_upload import B2UploadError, upload_archive_to_b2
 

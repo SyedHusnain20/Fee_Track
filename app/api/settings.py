@@ -219,9 +219,7 @@ async def apply_exam_fee_route(
     except ValueError as exc:
         return templates.TemplateResponse(
             "settings/list.html",
-            _base_context(
-                request, session, admin, exam_fee_period=period, exam_fee_error=str(exc)
-            ),
+            _base_context(request, session, admin, exam_fee_period=period, exam_fee_error=str(exc)),
             status_code=status.HTTP_400_BAD_REQUEST,
         )
 
@@ -313,9 +311,7 @@ async def update_setting(
         if grace_minutes is None or grace_minutes < 0:
             return templates.TemplateResponse(
                 "settings/list.html",
-                _base_context(
-                    request, session, admin, error="Grace period can't be negative."
-                ),
+                _base_context(request, session, admin, error="Grace period can't be negative."),
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
         set_session_timing(session, attendance_session, parsed_start, grace_minutes)

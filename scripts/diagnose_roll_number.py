@@ -80,7 +80,12 @@ def main() -> None:
         class_level = session.get(ClassLevel, student.class_level_id)
         print(f"  name: {student.name}")
         print(f"  class_level_id: {student.class_level_id}")
-        print(f"  resolved class_level: name={class_level.name!r} class_offset={class_level.class_offset}" if class_level else "  resolved class_level: MISSING (dangling FK!)")
+        print(
+            f"  resolved class_level: name={class_level.name!r} "
+            f"class_offset={class_level.class_offset}"
+            if class_level
+            else "  resolved class_level: MISSING (dangling FK!)"
+        )
 
         cohort_code = target_roll_number[:2]
         print(f"\n  Roll number's cohort_code is {cohort_code!r}.")

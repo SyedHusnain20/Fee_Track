@@ -21,7 +21,9 @@ import base64
 from functools import lru_cache
 from pathlib import Path
 
-_LOGO_PATH = Path(__file__).resolve().parent.parent / "static" / "branding" / "apex_academy_logo.png"
+_LOGO_PATH = (
+    Path(__file__).resolve().parent.parent / "static" / "branding" / "apex_academy_logo.png"
+)
 
 
 @lru_cache(maxsize=1)

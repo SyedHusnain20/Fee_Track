@@ -48,7 +48,6 @@ async def csrf_protect(request: Request) -> None:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=(
-                "Your session token is invalid or expired. "
-                "Please refresh the page and try again."
-    ),
-)
+                "Your session token is invalid or expired. Please refresh the page and try again."
+            ),
+        )

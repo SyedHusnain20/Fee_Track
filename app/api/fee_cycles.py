@@ -264,7 +264,9 @@ async def download_invoice_pdf(
     """
     context = _invoice_context(session, cycle_id)
     fragment = templates.env.get_template("fee_cycles/_invoice_document.html").render(context)
-    document_html = f"<!DOCTYPE html><html><head><meta charset='utf-8'></head><body>{fragment}</body></html>"
+    document_html = (
+        f"<!DOCTYPE html><html><head><meta charset='utf-8'></head><body>{fragment}</body></html>"
+    )
     pdf_bytes = HTML(string=document_html).write_pdf()
 
     return Response(
@@ -410,7 +412,7 @@ async def mark_unpaid(
 
 
 def _format_period_short(period: str) -> str:
-    """"2026-09" -> "Sep-26" -- the compact "(Mon-YY)" suffix used next to
+    """ "2026-09" -> "Sep-26" -- the compact "(Mon-YY)" suffix used next to
     each program line on the bill, distinct from the full "2026-09" period
     shown in its own row."""
     try:
@@ -491,8 +493,12 @@ async def download_payment_receipt_pdf(
     """Real, server-rendered PDF — see download_invoice_pdf above for why
     this exists instead of relying on the browser's own print-to-PDF."""
     context = _receipt_context(session, payment_id)
-    fragment = templates.env.get_template("fee_cycles/_payment_receipt_document.html").render(context)
-    document_html = f"<!DOCTYPE html><html><head><meta charset='utf-8'></head><body>{fragment}</body></html>"
+    fragment = templates.env.get_template("fee_cycles/_payment_receipt_document.html").render(
+        context
+    )
+    document_html = (
+        f"<!DOCTYPE html><html><head><meta charset='utf-8'></head><body>{fragment}</body></html>"
+    )
     pdf_bytes = HTML(string=document_html).write_pdf()
 
     return Response(

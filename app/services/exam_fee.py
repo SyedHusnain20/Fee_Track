@@ -25,11 +25,11 @@ already-settled cycles should be left alone instead, this is the one
 place to change.
 """
 
-from decimal import Decimal
 from datetime import datetime
+from decimal import Decimal
 
-from sqlmodel import Session, select
 from sqlalchemy import false
+from sqlmodel import Session, select
 
 from app.models.enrollment import Enrollment
 from app.models.enums import AuditAction, EnrollmentStatus, FeeCategory

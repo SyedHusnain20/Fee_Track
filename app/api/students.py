@@ -25,10 +25,11 @@ migration) is validated BEFORE the student row is created — an ineligible
 selection creates nothing at all, rather than leaving a half-created
 student with only some of the requested enrollments.
 """
+
+import json
 from datetime import timedelta
 from decimal import Decimal, InvalidOperation
 from typing import List, Optional
-import json
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -58,15 +59,15 @@ from app.models.fee_cycle import FeeCycle
 from app.models.student import Student
 from app.services.audit import write_audit_log
 from app.services.backdated_dues import create_backdated_fee_cycles
-from app.services.fee_settings import get_fee_due_day
 from app.services.fee_payments import get_outstanding_summaries_bulk
-from app.services.holidays import get_holiday_dates_in_range
+from app.services.fee_settings import get_fee_due_day
 from app.services.fees import (
     apply_discount,
     compute_student_fee_breakdown,
     get_band_fee,
     parse_discount_input,
 )
+from app.services.holidays import get_holiday_dates_in_range
 from app.services.qr_token import generate_qr_token
 from app.services.roll_number import generate_roll_number
 
@@ -219,34 +220,32 @@ def build_student_detail_context(
             )
         ).all()
 
-    holiday_dates = get_holiday_dates_in_range(session, last_6_active_days[0], last_6_active_days[-1])
+    holiday_dates = get_holiday_dates_in_range(
+        session, last_6_active_days[0], last_6_active_days[-1]
+    )
 
     present_school_dates = {
-        r.scan_date 
-        for r in recent_attendance 
-        if r.session == AttendanceSession.SCHOOL
+        r.scan_date for r in recent_attendance if r.session == AttendanceSession.SCHOOL
     }
     present_academy_dates = {
-        r.scan_date 
-        for r in recent_attendance 
-        if r.session == AttendanceSession.ACADEMY
+        r.scan_date for r in recent_attendance if r.session == AttendanceSession.ACADEMY
     }
 
     school_attendance_strip = [
         {
-            "date": d, 
+            "date": d,
             "present": d in present_school_dates,
             "is_holiday": d in holiday_dates,
-        } 
+        }
         for d in last_6_active_days
     ]
     academy_attendance_strip = [
         {
-            "date": d, 
+            "date": d,
             "present": d in present_academy_dates,
             "is_holiday": d in holiday_dates,
-        } 
-            for d in last_6_active_days
+        }
+        for d in last_6_active_days
     ]
 
     return {
@@ -314,10 +313,7 @@ async def list_students(
     if search_term:
         like = f"%{search_term}%"
         base_query = base_query.where(
-            or_(
-                Student.name.ilike(like), 
-                Student.roll_number.ilike(like)
-            )
+            or_(Student.name.ilike(like), Student.roll_number.ilike(like))
         )
 
     if class_level_id_int:
@@ -338,11 +334,7 @@ async def list_students(
     elif group == "academy":
         matching_ids = select(Enrollment.student_id).where(
             Enrollment.category.in_(
-                [
-                    FeeCategory.COACHING, 
-                    FeeCategory.ENGLISH, 
-                    FeeCategory.COMPUTER
-                ]
+                [FeeCategory.COACHING, FeeCategory.ENGLISH, FeeCategory.COMPUTER]
             ),
             Enrollment.status == EnrollmentStatus.ACTIVE,
         )
@@ -360,8 +352,7 @@ async def list_students(
     # that's existed since the original build, separate from the fee one.
     # This fetches all needed class levels in a single extra query instead.
     page_query = (
-        base_query
-        .options(selectinload(Student.class_level))
+        base_query.options(selectinload(Student.class_level))
         # Ascending by class level (Foundation 1, 2, 3, then Class 1, 2, ...
         # 12 -- class_offset is defined exactly for this ordering, see
         # scripts/seed_reference_data.py), roll_number as the tie-breaker
@@ -445,21 +436,17 @@ async def list_students(
         else:
             subtotal = Decimal("0.00")
             for e in student_enrollments:
-                subtotal += e.custom_fee if e.custom_fee is not None else _band_fee(e.category, class_offset)
+                subtotal += (
+                    e.custom_fee
+                    if e.custom_fee is not None
+                    else _band_fee(e.category, class_offset)
+                )
             total_fee = apply_discount(subtotal, student.discount_type, student.discount_value)
 
-        categories_present = {
-            e.category for e in student_enrollments
-        }
-        category_code = "".join(
-            CATEGORY_CODE[c] 
-            for c in FeeCategory 
-            if c in categories_present
-        )
+        categories_present = {e.category for e in student_enrollments}
+        category_code = "".join(CATEGORY_CODE[c] for c in FeeCategory if c in categories_present)
         category_tooltip = ", ".join(
-            CATEGORY_LABELS[c] 
-            for c in FeeCategory 
-            if c in categories_present
+            CATEGORY_LABELS[c] for c in FeeCategory if c in categories_present
         )
 
         cycle = cycle_by_student.get(student.id)
@@ -485,14 +472,16 @@ async def list_students(
             fee_status = "Freeship"
         else:
             fee_status = cycle.status.value.capitalize() if cycle is not None else "Unpaid"
-        rows.append({
-            "student": student,
-            "total_fee": total_fee,
-            "is_overdue": is_overdue,
-            "fee_status": fee_status,
-            "category_code": category_code,
-            "category_tooltip": category_tooltip,
-        })
+        rows.append(
+            {
+                "student": student,
+                "total_fee": total_fee,
+                "is_overdue": is_overdue,
+                "fee_status": fee_status,
+                "category_code": category_code,
+                "category_tooltip": category_tooltip,
+            }
+        )
 
     return templates.TemplateResponse(
         "students/list.html",
@@ -641,7 +630,9 @@ async def create_student(
 
     if previous_due_raw or previous_due_months_raw:
         if not previous_due_raw or not previous_due_months_raw:
-            return _redisplay("Enter both the previous due amount and the number of months (or leave both blank).")
+            return _redisplay(
+                "Enter both the previous due amount and the number of months (or leave both blank)."
+            )
         try:
             parsed_previous_due = Decimal(previous_due_raw)
         except InvalidOperation:
@@ -668,7 +659,8 @@ async def create_student(
         class_level = session.get(ClassLevel, class_level_id)
         class_offset = class_level.class_offset if class_level else None
         ineligible = [
-            c for c in selected_categories
+            c
+            for c in selected_categories
             if class_offset is None or get_band_fee(session, c, class_offset) is None
         ]
         if ineligible:
@@ -699,9 +691,7 @@ async def create_student(
 
     if custom_fee_errors:
         names = ", ".join(CATEGORY_LABELS[c] for c in custom_fee_errors)
-        return _redisplay(
-            f"Fix the custom fee for: {names}.", custom_fee_errors=custom_fee_errors
-        )
+        return _redisplay(f"Fix the custom fee for: {names}.", custom_fee_errors=custom_fee_errors)
 
     student = Student(
         roll_number=roll_number,

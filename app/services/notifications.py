@@ -78,9 +78,7 @@ def list_recent(session: Session, limit: int = RECENT_NOTIFICATIONS_LIMIT) -> li
 
 def unread_count(session: Session) -> int:
     return session.exec(
-        select(func.count())
-        .select_from(Notification)
-        .where(Notification.is_read == False)  # noqa: E712
+        select(func.count()).select_from(Notification).where(Notification.is_read == False)  # noqa: E712
     ).one()
 
 

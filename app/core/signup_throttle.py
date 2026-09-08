@@ -22,9 +22,7 @@ MAX_ATTEMPTS = 5
 LOCKOUT_DURATION = timedelta(minutes=30)
 
 _lock = threading.Lock()
-_attempts: dict[
-    str, dict
-] = {}  # client IP -> {"count": int, "locked_until": datetime | None}
+_attempts: dict[str, dict] = {}  # client IP -> {"count": int, "locked_until": datetime | None}
 
 
 def get_client_ip(request: Request) -> str:

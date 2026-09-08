@@ -125,9 +125,7 @@ def get_outstanding_summaries_bulk(session: Session, cycles: list[FeeCycle]) -> 
     return summaries
 
 
-def record_payment(
-    session: Session, cycle_id: int, amount: Decimal, admin_id: int
-) -> FeePayment:
+def record_payment(session: Session, cycle_id: int, amount: Decimal, admin_id: int) -> FeePayment:
     anchor = session.get(FeeCycle, cycle_id)
     if not anchor:
         raise PaymentError("Fee cycle not found.")

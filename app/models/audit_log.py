@@ -22,9 +22,7 @@ class AuditLog(SQLModel, table=True):
     # here loses no forensic information, only the live FK link.
     admin_id: Optional[int] = Field(
         default=None,
-        sa_column=Column(
-            Integer, ForeignKey("admin_user.id", ondelete="SET NULL"), index=True
-        ),
+        sa_column=Column(Integer, ForeignKey("admin_user.id", ondelete="SET NULL"), index=True),
     )
     action: AuditAction = Field(sa_column=Column(str_enum_type(AuditAction), nullable=False))
     entity_type: str = Field(max_length=100, index=True)  # e.g. "Enrollment", "FeeCycle"
